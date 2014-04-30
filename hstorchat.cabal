@@ -1,0 +1,20 @@
+name:                hstorchat
+version:             0.1.0.0
+synopsis:            Haskell TorChat clone using HsQML
+homepage:            reichertbrothers.com/blog/posts/2014-04-30-exploring-hsqml.html
+license:             GPL-3
+license-file:        LICENSE
+author:              Christopher Reichert
+maintainer:          creichert07@gmail.com
+build-type:          Simple
+cabal-version:       >=1.10
+Data-Files:          torrc
+
+executable hstorchat
+  main-is:             Main.hs
+  hs-source-dirs:      src
+  ghc-options:         -Wall -threaded -fno-warn-unused-do-bind
+  default-language:    Haskell2010
+  build-depends:       base >=4.6 && <4.7, network,
+                       socks, process, hsqml, safecopy, tagged,
+                       attoparsec, text, split, socks
