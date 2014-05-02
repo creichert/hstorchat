@@ -19,7 +19,7 @@
 # must change only the second number, the forwarding target, as shown above.
 ############################################################################
 
-SocksPort 12209
+SocksPort 22209
 
 # we don't use the control port currently, so leave this alone
 # ControlPort 11119
@@ -27,7 +27,7 @@ SocksPort 12209
 # INCOMING connections for the hidden service arrive at 11009
 # and will be forwarded to TorChat at 127.0.0.1:11009
 HiddenServiceDir hidden_service
-HiddenServicePort 11009 127.0.0.1:12009
+HiddenServicePort 11009 127.0.0.1:22009
 
 # where should tor store it's cache files
 DataDirectory tor_data

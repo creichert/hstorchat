@@ -1,9 +1,9 @@
-
 {-# LANGUAGE DeriveDataTypeable, TypeFamilies, OverloadedStrings #-}
 module GUI where
 
 import Control.Concurrent
-import qualified Data.Char as C
+import Control.Monad
+import Data.Attoparsec.Text hiding (take)
 import Data.Tagged
 import qualified Data.Text as T
 import Data.Typeable
@@ -12,27 +12,32 @@ import System.IO
 
 import Protocol
 
-data UI = UI
-        { _onion   :: String
-        , _status  :: Status
-        , _buddies :: MVar [ Buddy ]
-        } deriving (Typeable)
+data PendingConnection = PendingConnection
+                       { _pcookie :: Cookie
+                       , _ponion  :: Onion
+                       , _phandle :: Handle
+                       } deriving Show
 
-data Buddy = Buddy
-           { _addy     :: String
-           , _in_conn  :: Handle
-           , _out_conn :: Handle
-           } deriving Show
+data UI = UI
+        { _myonion :: Onion
+        , _status  :: Status
+        , _buddies :: MVar [Buddy]
+        , _pending :: MVar [PendingConnection]
+        } deriving (Typeable)
 
 instance Object UI where
     classDef = defClass [
           -- | Return Onion address for this instance of HSTorChat.
-          defMethod "onion" (
-                (\o -> return $ _onion $ fromObjRef o) :: ObjRef UI -> IO String)
+          defMethod "onion" (return . T.unpack . _myonion . fromObjRef :: ObjRef UI -> IO String)
           -- | Send a message to a buddy.
         , defMethod "sendMsg" sendMsg
-        , defPropertyRO "self" ((\x -> return x) :: ObjRef UI -> IO (ObjRef UI))
+          -- | Add a new buddy.
+        , defMethod "newBuddy" newBuddy
+          -- | Access the context object (ObjRef UI) in qml callbacks.
+        , defPropertyRO "self" (return :: ObjRef UI -> IO (ObjRef UI))
+          -- | Get status of self.
         , defPropertyRO "status" getStatus
+          -- | Called when a new message arrives from a buddy.
         , defSignal (Tagged "msgReady" :: Tagged MsgReady String)
         ]
 
@@ -67,10 +72,6 @@ instance Marshal Status where
 getStatus :: ObjRef UI -> IO (ObjRef Status)
 getStatus = undefined
 
-lowercase :: String -> String
-lowercase []     = ""
-lowercase (x:xs) = C.toLower x : xs
-
 -- | This method is called when the user enters
 -- a msg in a chat window. The handle for the buddy
 -- is accessed and used to send the message.
@@ -82,10 +83,108 @@ sendMsg ui onion msg = do
     buds <- readMVar $ _buddies ui'
     sendMsgTo buds
   where
-    sendMsgTo []   = putStrLn "Unable to send msg: no buddies."
+    sendMsgTo []   = putStrLn "Unable to send message. No buddies."
     sendMsgTo buds = do
         -- Filter proper buddy from list.
-        let thebuddy = head $ filter (\b -> _addy b == T.unpack onion) buds
+        let thebuddy = head $ filter (\b -> _onion b == T.unpack onion) buds
+
         -- | TODO: Reschedule if send is not succesful.
-        hPutStrLn (_out_conn thebuddy) $ lowercase $ filter (/= '"') $ show $ Message msg
-        return ()
+        hPutStrLn (_outConn thebuddy) $ formatMsg $ Message msg
+
+newBuddy :: ObjRef UI -> T.Text -> IO ()
+newBuddy ui onion = do
+        putStrLn $ "Requesting buddy connection: " ++ T.unpack onion
+
+        oHdl <- hstorchatOutConn $ onion `T.append` ".onion"
+
+        let ui' = fromObjRef ui
+        -- Add to list of pending connection.
+        modifyMVar_ (_pending ui') (\p -> return (PendingConnection mykey onion oHdl:p))
+        hPutStrLn oHdl $ formatMsg $ Ping (_myonion ui') mykey
+
+-- | This loop handles the initial Ping.
+handleRequest :: ObjRef UI -> Handle -> IO ()
+handleRequest ui iHdl = do
+
+        txt <- hGetLine iHdl
+        case parseOnly parsePingPong (T.pack txt) of
+
+            Left e  -> putStr "Error parsing incoming connection: " >> print e
+
+            -- A Ping here means there is a new connection request.
+            Right (Ping onion key) -> do
+
+                let ui' = fromObjRef ui
+
+                oHdl <- hstorchatOutConn $ onion `T.append` ".onion"
+                mapM_ (hPutStrLn oHdl . formatMsg) [ Ping (_myonion ui') mykey
+                                                   , Pong key
+                                                   , Client "HSTorChat"
+                                                   , Version "0.1.0.0"
+                                                   , AddMe
+                                                   , Status "available"
+                                                   ]
+
+                modifyMVar_ (_pending ui') (\p -> return (PendingConnection mykey onion oHdl:p))
+
+                handleRequest ui iHdl
+
+            -- All buddies must authenticate using the cookie we sent.
+            Right (Pong key) -> do
+
+                let ui' = fromObjRef ui
+                p <- readMVar (_pending ui')
+
+                -- Filter all matching keys. Very important for security
+                pendingConnection $ filter ((== key) . _pcookie) p
+
+            _ -> putStrLn "Buddy is not authenticated yet. Ignoring message."
+  where
+    pendingConnection :: [PendingConnection] -> IO ()
+    pendingConnection [] = putStrLn "Security Warning: Attempted connection with unidentified cookie."
+    -- | A pending connection exists. Verify and start the buddy
+    pendingConnection (PendingConnection cke o oHdl:pcs) = do
+
+                let b   = Buddy (T.unpack o) iHdl oHdl cke
+                    ui' = fromObjRef ui
+
+                modifyMVar_ (_buddies ui') (\bs -> return (b:bs))
+                -- effectively, remove this pending connection from
+                -- _pending.
+                modifyMVar_ (_pending ui') (\_ -> return pcs)
+
+                -- A new Buddy has been identified.
+                m <- newObject $ Msg (T.unpack o ++ " has been added to you buddy list.") $ T.unpack o
+
+                -- TODO: Emit the `ProtocolMsg Message` constructor directly.
+                --       Remove the Msg class and modify MsgReady sig.
+                fireSignal (Tagged ui :: Tagged MsgReady (ObjRef UI)) m
+
+                -- The buddy has been authenticated. Now enter the buddy loop.
+                runBuddy ui b
+
+runBuddy :: ObjRef UI -> Buddy -> IO ()
+runBuddy ui (Buddy onion iHdl oHdl _) = forever $ do
+
+        txt <- hGetLine iHdl
+        rdy <- hReady oHdl
+
+        when rdy $ do out_txt <- hGetLine oHdl
+                      putStrLn $ "Outgoing connection message: " ++ out_txt
+
+        case parseOnly parseResponse (T.pack txt) of
+
+            Left e  -> putStr "Error parsing incoming message: " >> print e >> hClose iHdl
+
+            Right (Ping _ key') -> mapM_ (hPutStrLn oHdl . formatMsg) [ Pong key'
+                                                                      , Client "HSTorChat"
+                                                                      , Version "0.1.0.0"
+                                                                      , AddMe
+                                                                      , Status "available"
+                                                                      ]
+            Right (Message msg)     -> do
+                -- TODO: Emit the `ProtocolMsg Message` directly.
+                m <- newObject $ Msg (T.unpack msg) onion
+                fireSignal (Tagged ui :: Tagged MsgReady (ObjRef UI)) m
+
+            Right p  -> print p

@@ -41,6 +41,23 @@ Rectangle {
         highlight: Rectangle { color: "grey"
                                radius: 5
                              }
+        Text {
+            id: addbuddy
+            text: "+"
+            font.pointSize: 20
+            anchors.bottom: parent.bottom
+            MouseArea {
+                anchors.fill: parent
+                onClicked: { newBuddy(newbuddy.text) }
+            }
+        }
+        TextInput {
+            id: newbuddy
+            font.pointSize: 15
+            text: "icaowvpie7nbbsur"
+            anchors.left: addbuddy.right
+            anchors.bottom: parent.bottom
+        }
     }
 
     Text {
@@ -50,6 +67,14 @@ Rectangle {
         anchors.top: parent.top
         anchors.left: buddylist.right
         anchors.margins: 3
+
+        Image {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.verticalCenter: parent.verticalCenter
+            width: parent.width; height: parent.height / 2
+            opacity: 0.2
+            source: "img/hs.png"
+        }
     }
 
     TextInput {
@@ -60,8 +85,8 @@ Rectangle {
         anchors.margins: 5
         height: 100
 
-        //text: onion();
-        onAccepted: { sendMsg(buddies.get(buddylist.currentIndex)["name"], msgentry.text)
+        onAccepted: { if (buddylist.length <= 0) return
+                      sendMsg(buddies.get(buddylist.currentIndex)["name"], msgentry.text)
                       buddies.get(buddylist.currentIndex)["msgs"] += msgentry.text
                       buddies.get(buddylist.currentIndex)["msgs"] += "\n"
                       msgarea.text = buddies.get(buddylist.currentIndex)["msgs"]
