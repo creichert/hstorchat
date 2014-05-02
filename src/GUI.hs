@@ -154,7 +154,7 @@ handleRequest ui iHdl = do
                 modifyMVar_ (_pending ui') (\_ -> return pcs)
 
                 -- A new Buddy has been identified.
-                m <- newObject $ Msg (T.unpack o ++ " has been added to you buddy list.") $ T.unpack o
+                m <- newObject $ Msg ("A connection to " ++ T.unpack o ++ " has been established.") $ T.unpack o
 
                 -- TODO: Emit the `ProtocolMsg Message` constructor directly.
                 --       Remove the Msg class and modify MsgReady sig.

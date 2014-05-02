@@ -21,7 +21,7 @@ Rectangle {
 
         Rectangle {
             anchors.fill: parent
-            color: "darkgrey"
+            color: "lightgrey"
             z: -1
             radius: 5
         }
@@ -39,7 +39,7 @@ Rectangle {
                       }
                     }
         highlight: Rectangle { color: "grey"
-                               radius: 5
+                               radius: 2
                              }
         Text {
             id: addbuddy
@@ -51,6 +51,7 @@ Rectangle {
                 onClicked: { newBuddy(newbuddy.text) }
             }
         }
+
         TextInput {
             id: newbuddy
             font.pointSize: 15
@@ -67,11 +68,12 @@ Rectangle {
         anchors.top: parent.top
         anchors.left: buddylist.right
         anchors.margins: 3
+        wrapMode: Text.WordWrap
 
         Image {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
-            width: parent.width; height: parent.height / 2
+            width: parent.width; height: parent.height / 1.2
             opacity: 0.2
             source: "img/hs.png"
         }
