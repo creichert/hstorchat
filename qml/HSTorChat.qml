@@ -92,6 +92,7 @@ Rectangle {
         anchors.left: buddylist.right
         anchors.right: parent.right
         anchors.margins: 5
+        enabled: false
 
         onAccepted: { if (buddylist.length <= 0) return
                       sendMsg(buddies.get(buddylist.currentIndex)["name"], msgentry.text)
@@ -124,6 +125,7 @@ Rectangle {
             buddies.append({ "name": msg.buddy, "msgs": [ { name: msg.text, fromme: false } ] })
             /* TODO: Focus the buddy. This will make the next call work. */
             msgarea.model = buddies.get(buddylist.currentIndex)["msgs"]
+            msgentry.enabled = true
         }
 
         msgarea.positionViewAtEnd()
