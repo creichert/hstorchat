@@ -34,13 +34,13 @@ Rectangle {
                       MouseArea {
                           anchors.fill: parent
                           onClicked: { buddylist.currentIndex = index
-                                       msgarea.text = buddies.get(index)["msgs"]
+                                       msgarea.model = buddies.get(index)["msgs"]
                                       }
                       }
                     }
-        highlight: Rectangle { color: "grey"
-                               radius: 2
-                             }
+
+        highlight: Rectangle { color: "grey"; radius: 2 }
+
         Text {
             id: addbuddy
             text: "+"
@@ -61,19 +61,26 @@ Rectangle {
         }
     }
 
-    Text {
+    ListView {
         id: msgarea
         anchors.bottom: msgentry.top
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.left: buddylist.right
         anchors.margins: 3
-        wrapMode: Text.WordWrap
+        clip: true
+        delegate: Text { text: name
+                         horizontalAlignment: { if (fromme)
+                                                    Text.AlignRight
+                                              }
+                         width: parent.width
+                         wrapMode: Text.WordWrap
+                       }
 
         Image {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
-            width: parent.width; height: parent.height / 1.2
+            width: parent.width; height: parent.height / 2
             opacity: 0.2
             source: "img/hs.png"
         }
@@ -85,14 +92,13 @@ Rectangle {
         anchors.left: buddylist.right
         anchors.right: parent.right
         anchors.margins: 5
-        height: 100
 
         onAccepted: { if (buddylist.length <= 0) return
                       sendMsg(buddies.get(buddylist.currentIndex)["name"], msgentry.text)
-                      buddies.get(buddylist.currentIndex)["msgs"] += msgentry.text
-                      buddies.get(buddylist.currentIndex)["msgs"] += "\n"
-                      msgarea.text = buddies.get(buddylist.currentIndex)["msgs"]
+                      buddies.get(buddylist.currentIndex)["msgs"].append({ name: msgentry.text, fromme: true })
+                      msgarea.model = buddies.get(buddylist.currentIndex)["msgs"]
                       msgentry.text = ""
+                      msgarea.positionViewAtEnd()
                     }
         Rectangle {
            anchors.fill: parent
@@ -102,26 +108,24 @@ Rectangle {
         }
     }
 
-    Component.onCompleted: { self.msgReady.connect(ready)
-                             if (buddies.get(buddylist.currentIndex))
-                                 buddies.get(buddylist.currentIndex)["msgs"]
-                           }
-    function ready(msg) {
+    Component.onCompleted: { self.msgReady.connect(msgReceived) }
+    function msgReceived(msg) {
 
         var buddyFound = false
         for (var i=0; i < buddies.count; i++) {
             if (buddies.get(i)["name"] == msg.buddy){
-                buddies.get(i)["msgs"] += msg.text
-                buddies.get(i)["msgs"] += "\n"
-                msgarea.text = buddies.get(buddylist.currentIndex)["msgs"]
+                buddies.get(i)["msgs"].append({ name: msg.text, fromme: false })
+                msgarea.model = buddies.get(buddylist.currentIndex)["msgs"]
                 buddyFound = true
             }
         }
 
         if (buddyFound == false) {
-            buddies.append({ "name": msg.buddy, "msgs": msg.text + "\n" })
+            buddies.append({ "name": msg.buddy, "msgs": [ { name: msg.text, fromme: false } ] })
             /* TODO: Focus the buddy. This will make the next call work. */
-            msgarea.text = buddies.get(buddylist.currentIndex)["msgs"]
+            msgarea.model = buddies.get(buddylist.currentIndex)["msgs"]
         }
+
+        msgarea.positionViewAtEnd()
     }
 }

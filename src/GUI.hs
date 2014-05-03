@@ -13,12 +13,6 @@ import System.Random
 
 import Protocol
 
-data PendingConnection = PendingConnection
-                       { _pcookie :: Cookie
-                       , _ponion  :: Onion
-                       , _phandle :: Handle
-                       } deriving Show
-
 data UI = UI
         { _myonion :: Onion
         , _status  :: Status

@@ -54,6 +54,12 @@ data Buddy = Buddy
            , _cookie  :: Cookie -- ^ Cookie sent to buddy.
            } deriving Show
 
+data PendingConnection = PendingConnection
+                       { _pcookie :: Cookie
+                       , _ponion  :: Onion
+                       , _phandle :: Handle
+                       } deriving Show
+
 data ProtocolMsg = Ping Onion Cookie
                  | Pong T.Text
                  | Client T.Text
