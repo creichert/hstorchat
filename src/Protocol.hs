@@ -7,15 +7,17 @@ import Control.Monad
 import Data.Attoparsec.Text
 import qualified Data.Char as C
 import qualified Data.Text as T
+import Data.Word
 import Prelude hiding (take)
+import qualified Prelude as P
 import Network
 import Network.Socket
 import Network.Socks5
 import System.IO
+import System.Random
 
--- TODO: Replace this key with a random number generator.
-mykey :: T.Text
-mykey = "66241890815914920502101090367586695907312936797864657576118321050486943686966"
+gencookie :: StdGen -> Cookie
+gencookie g = T.pack . concatMap show $ P.take 3 (randoms g :: [Word64])
 
 torSocksPort :: PortNumber
 torSocksPort = 22209

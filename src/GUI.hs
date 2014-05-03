@@ -9,6 +9,7 @@ import qualified Data.Text as T
 import Data.Typeable
 import Graphics.QML
 import System.IO
+import System.Random
 
 import Protocol
 
@@ -97,10 +98,13 @@ newBuddy ui onion = do
 
         oHdl <- hstorchatOutConn $ onion `T.append` ".onion"
 
-        let ui' = fromObjRef ui
+        gen <- getStdGen
+        let  cky = gencookie gen
+             ui' = fromObjRef ui
+
         -- Add to list of pending connection.
-        modifyMVar_ (_pending ui') (\p -> return (PendingConnection mykey onion oHdl:p))
-        hPutStrLn oHdl $ formatMsg $ Ping (_myonion ui') mykey
+        modifyMVar_ (_pending ui') (\p -> return (PendingConnection cky onion oHdl:p))
+        hPutStrLn oHdl $ formatMsg $ Ping (_myonion ui') cky
 
 -- | This loop handles the initial Ping.
 handleRequest :: ObjRef UI -> Handle -> IO ()
@@ -114,10 +118,12 @@ handleRequest ui iHdl = do
             -- A Ping here means there is a new connection request.
             Right (Ping onion key) -> do
 
-                let ui' = fromObjRef ui
+                gen <- getStdGen
+                let cky = gencookie gen
+                    ui' = fromObjRef ui
 
                 oHdl <- hstorchatOutConn $ onion `T.append` ".onion"
-                mapM_ (hPutStrLn oHdl . formatMsg) [ Ping (_myonion ui') mykey
+                mapM_ (hPutStrLn oHdl . formatMsg) [ Ping (_myonion ui') cky
                                                    , Pong key
                                                    , Client "HSTorChat"
                                                    , Version "0.1.0.0"
@@ -125,7 +131,7 @@ handleRequest ui iHdl = do
                                                    , Status "available"
                                                    ]
 
-                modifyMVar_ (_pending ui') (\p -> return (PendingConnection mykey onion oHdl:p))
+                modifyMVar_ (_pending ui') (\p -> return (PendingConnection cky onion oHdl:p))
 
                 handleRequest ui iHdl
 

@@ -24,7 +24,6 @@ main = withSocketsDo $ do
     bindSocket sock $ SockAddrInet hstorchatLocalPort li
     listen sock 2
 
-    -- acid state.
     buddies <- newMVar []
     p <- newMVar []
 
