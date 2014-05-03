@@ -44,20 +44,27 @@ Rectangle {
         Text {
             id: addbuddy
             text: "+"
-            font.pointSize: 20
             anchors.bottom: parent.bottom
             MouseArea {
                 anchors.fill: parent
-                onClicked: { newBuddy(newbuddy.text) }
+                onClicked: { newBuddy(newbuddy.text); newbuddy.text = "" }
             }
         }
 
         TextInput {
             id: newbuddy
-            font.pointSize: 15
-            text: "icaowvpie7nbbsur"
             anchors.left: addbuddy.right
+            anchors.right: parent.right
             anchors.bottom: parent.bottom
+            text: "icaowvpie7nbbsur"
+            maximumLength: 16
+
+            Rectangle {
+               anchors.fill: parent
+               border.width: 1; border.color: "darkgrey"
+               radius: 5
+               z: -5
+            }
         }
     }
 
