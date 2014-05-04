@@ -8,13 +8,29 @@ author:              Christopher Reichert
 maintainer:          creichert07@gmail.com
 build-type:          Simple
 cabal-version:       >=1.10
-Data-Files:          torrc
+category:            Network
+data-files:          torrc
 
-executable hstorchat
-  main-is:             Main.hs
+library
   hs-source-dirs:      src
-  ghc-options:         -Wall -threaded -fno-warn-unused-do-bind
   default-language:    Haskell2010
   build-depends:       base >=4.6 && <4.7, network,
                        socks, process, hsqml, safecopy, tagged,
                        attoparsec, text, split, socks, random
+  exposed-modules:     HSTorChat.Protocol, HSTorChat.GUI
+
+executable hstorchat
+  main-is:             src/Main.hs
+  ghc-options:         -Wall -threaded -fno-warn-unused-do-bind
+  default-language:    Haskell2010
+  build-depends:       base >=4.6 && <4.7, network, hstorchat, process, hsqml, text
+
+test-suite hstorchat-tests
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      tests
+  main-is:             Main.hs
+  ghc-options:         -Wall
+  default-language:    Haskell2010
+  build-depends:       base, test-framework,
+                       test-framework-hunit, test-framework-quickcheck2,
+                       HUnit, QuickCheck, hstorchat

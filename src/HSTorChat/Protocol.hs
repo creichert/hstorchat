@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
-module Protocol where
+module HSTorChat.Protocol where
 
 import Control.Applicative
 import Control.Monad
@@ -44,8 +44,8 @@ formatMsg :: ProtocolMsg -> String
 formatMsg AddMe = "add_me"
 formatMsg m     = map C.toLower . filter (/= '"') . show $ m
 
-type Onion  = T.Text 
-type Cookie = T.Text 
+type Onion  = T.Text
+type Cookie = T.Text
 
 data Buddy = Buddy
            { _onion   :: String -- ^ Buddy onion address.

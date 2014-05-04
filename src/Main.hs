@@ -9,8 +9,8 @@ import Network.Socket
 import System.IO
 import System.Process
 
-import GUI
-import Protocol
+import HSTorChat.GUI
+import HSTorChat.Protocol
 
 main :: IO ()
 main = withSocketsDo $ do

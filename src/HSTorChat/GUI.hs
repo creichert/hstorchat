@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable, TypeFamilies, OverloadedStrings #-}
-module GUI where
+module HSTorChat.GUI where
 
 import Control.Concurrent
 import Control.Monad
@@ -11,7 +11,7 @@ import Graphics.QML
 import System.IO
 import System.Random
 
-import Protocol
+import HSTorChat.Protocol
 
 data UI = UI
         { _myonion :: Onion
@@ -97,6 +97,7 @@ newBuddy ui onion = do
              ui' = fromObjRef ui
 
         -- Add to list of pending connection.
+        -- TODO: Only add unique onion to this list.
         modifyMVar_ (_pending ui') (\p -> return (PendingConnection cky onion oHdl:p))
         hPutStrLn oHdl $ formatMsg $ Ping (_myonion ui') cky
 
@@ -188,3 +189,6 @@ runBuddy ui (Buddy onion iHdl oHdl _) = forever $ do
                 fireSignal (Tagged ui :: Tagged MsgReady (ObjRef UI)) m
 
             Right p  -> print p
+
+        hFlush iHdl
+        hFlush oHdl
