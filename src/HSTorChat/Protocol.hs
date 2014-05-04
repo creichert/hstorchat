@@ -60,7 +60,7 @@ data BuddyStatus = Offline
                  | Available
                  | Away
                  | Xa -- * Extended Away
-                 deriving (Read, Show)
+                 deriving (Eq, Read, Show)
 
 data PendingConnection = PendingConnection
                        { _pcookie :: Cookie

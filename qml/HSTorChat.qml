@@ -1,5 +1,5 @@
 
-import QtQuick 1.1
+import QtQuick 2.0
 
 Rectangle {
     id: root
@@ -16,6 +16,7 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.margins: 3
         currentIndex: 0
+        clip: true
         width: 150
         focus: true
 

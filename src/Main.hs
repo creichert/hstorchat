@@ -32,7 +32,7 @@ main = withSocketsDo $ do
 
     putStr $ "Hello " ++ onion
 
-    ui <- newObject $ UI myonion Available buddies p
+    ui <- newObjectDC $ UI myonion Available buddies p
 
     _ <- forkIO $ forever $ do
         (insock,_) <- accept sock
@@ -41,7 +41,6 @@ main = withSocketsDo $ do
         forkIO $ handleRequest ui iHdl
 
     runEngineLoop defaultEngineConfig {
-        initialURL = filePathToURI "qml/HSTorChat.qml"
-      , initialWindowState = ShowWindowWithTitle "HSTorChat"
-      , contextObject = Just $ anyObjRef ui
+        initialDocument    = fileDocument "qml/HSTorChat.qml"
+      , contextObject      = Just $ anyObjRef ui
     }

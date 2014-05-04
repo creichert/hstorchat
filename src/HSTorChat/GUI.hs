@@ -4,8 +4,8 @@ module HSTorChat.GUI where
 import Control.Concurrent
 import Control.Monad
 import Data.Attoparsec.Text hiding (take)
-import Data.Tagged
 import qualified Data.Text as T
+import Data.Proxy
 import Data.Typeable
 import Graphics.QML
 import System.IO
@@ -20,10 +20,10 @@ data UI = UI
         , _pending  :: MVar [PendingConnection]
         } deriving (Typeable)
 
-instance Object UI where
-    classDef = defClass [
+instance DefaultClass UI where
+    classMembers = [
           -- | Return Onion address for this instance of HSTorChat.
-          defMethod "onion" (return . T.unpack . _myonion . fromObjRef :: ObjRef UI -> IO String)
+          defMethod "onion" (return . _myonion . fromObjRef :: ObjRef UI -> IO Onion)
           -- | Send a message to a buddy.
         , defMethod "sendMsg" sendMsg
           -- | Add a new buddy.
@@ -31,7 +31,7 @@ instance Object UI where
           -- | Access the context object (ObjRef UI) in qml callbacks.
         , defPropertyRO "self" (return :: ObjRef UI -> IO (ObjRef UI))
           -- | Called when a new message arrives from a buddy.
-        , defSignal (Tagged "msgReady" :: Tagged MsgReady String)
+        , defSignal "msgReady" (Proxy :: Proxy MsgReady)
         ]
 
 data Msg = Msg
@@ -39,17 +39,19 @@ data Msg = Msg
          , buddy :: String
          } deriving Typeable
 
-instance Object Msg where
-    classDef = defClass [
-          defPropertyRO "buddy" (return . buddy . fromObjRef)
-        , defPropertyRO "text" (return . text . fromObjRef) ]
+instance DefaultClass Msg where
+    classMembers = [
+          defPropertyRO "buddy" (return . T.pack . buddy . fromObjRef)
+        , defPropertyRO "text" (return . T.pack . text . fromObjRef)
+        ]
 
 instance Marshal Msg where
-    type MarshalMode Msg = ValObjToOnly Msg
-    marshaller = objSimpleMarshaller
+    type MarshalMode Msg c d = ModeObjFrom Msg c
+    marshaller = fromMarshaller fromObjRef
 
 data MsgReady deriving Typeable
-instance SignalKey MsgReady where
+
+instance SignalKeyClass MsgReady where
     type SignalParams MsgReady = ObjRef Msg -> IO ()
 
 -- | This method is called when the user enters
@@ -81,6 +83,8 @@ newBuddy ui onion = do
         let  cky = gencookie gen
              ui' = fromObjRef ui
 
+        -- TODO: Add this buddy to the list now and set Offline.
+
         -- Add to list of pending connection.
         -- TODO: Only add unique onion to this list.
         modifyMVar_ (_pending ui') (\p -> return (PendingConnection cky onion oHdl:p))
@@ -103,8 +107,15 @@ handleRequest ui iHdl = do
                     ui' = fromObjRef ui
 
                 oHdl <- hstorchatOutConn $ onion `T.append` ".onion"
-                mapM_ (hPutStrLn oHdl . formatMsg) [ Ping (_myonion ui') cky
-                                                   , Pong key
+
+                p' <- readMVar (_pending ui')
+                b' <- readMVar (_buddies ui')
+                -- Send Ping if this Buddy is new of Offline.
+                when ((not $ any ((== key) . _pcookie) p') &&
+                      (not $ any ((/= Offline) . _status) b')
+                     ) $ hPutStrLn oHdl $ formatMsg $ Ping (_myonion ui') cky
+
+                mapM_ (hPutStrLn oHdl . formatMsg) [ Pong key
                                                    , Client "HSTorChat"
                                                    , Version "0.1.0.0"
                                                    , AddMe
@@ -131,7 +142,7 @@ handleRequest ui iHdl = do
     -- | A pending connection exists. Verify and start the buddy
     pendingConnection (PendingConnection cke o oHdl:pcs) = do
 
-                let b   = Buddy (T.unpack o) iHdl oHdl cke Offline
+                let b   = Buddy (T.unpack o) iHdl oHdl cke Available
                     ui' = fromObjRef ui
 
                 modifyMVar_ (_buddies ui') (\bs -> return (b:bs))
@@ -140,24 +151,21 @@ handleRequest ui iHdl = do
                 modifyMVar_ (_pending ui') (\_ -> return pcs)
 
                 -- A new Buddy has been identified.
-                m <- newObject $ Msg ("A connection to " ++ T.unpack o ++ " has been established.") $ T.unpack o
+                m <- newObjectDC $ Msg ("A connection to " ++ T.unpack o ++ " has been established.") $ T.unpack o
 
                 -- TODO: Emit the `ProtocolMsg Message` constructor directly.
                 --       Remove the Msg class and modify MsgReady sig.
-                fireSignal (Tagged ui :: Tagged MsgReady (ObjRef UI)) m
+                fireSignal (Proxy :: Proxy MsgReady) ui m
 
                 runBuddy ui b
 
 runBuddy :: ObjRef UI -> Buddy -> IO ()
-runBuddy ui (Buddy onion iHdl oHdl cky st) = forever $ do
+runBuddy ui (Buddy onion iHdl oHdl cky st) = do
 
         txt <- hGetLine iHdl
         rdy <- hReady oHdl
-
         when rdy $ do out_txt <- hGetLine oHdl
                       putStrLn $ "Outgoing connection message: " ++ out_txt
-
-        let ui' = fromObjRef ui
 
         case parseOnly parseResponse (T.pack txt) of
 
@@ -171,8 +179,8 @@ runBuddy ui (Buddy onion iHdl oHdl cky st) = forever $ do
                                                                       ]
             Right (Message msg) -> do
                 -- TODO: Emit the `ProtocolMsg Message` directly.
-                m <- newObject $ Msg (T.unpack msg) onion
-                fireSignal (Tagged ui :: Tagged MsgReady (ObjRef UI)) m
+                m <- newObjectDC $ Msg (T.unpack msg) onion
+                fireSignal (Proxy :: Proxy MsgReady) ui m
 
             Right p -> print p
 
