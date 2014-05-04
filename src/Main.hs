@@ -32,7 +32,7 @@ main = withSocketsDo $ do
 
     putStr $ "Hello " ++ onion
 
-    ui <- newObject $ UI myonion Online buddies p
+    ui <- newObject $ UI myonion Available buddies p
 
     _ <- forkIO $ forever $ do
         (insock,_) <- accept sock

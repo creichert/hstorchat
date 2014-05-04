@@ -52,7 +52,15 @@ data Buddy = Buddy
            , _inConn  :: Handle
            , _outConn :: Handle
            , _cookie  :: Cookie -- ^ Cookie sent to buddy.
+           , _status  :: BuddyStatus -- * Buddy status
            } deriving Show
+
+data BuddyStatus = Offline
+                 | Handshake
+                 | Available
+                 | Away
+                 | Xa -- * Extended Away
+                 deriving (Read, Show)
 
 data PendingConnection = PendingConnection
                        { _pcookie :: Cookie
@@ -64,7 +72,7 @@ data ProtocolMsg = Ping Onion Cookie
                  | Pong T.Text
                  | Client T.Text
                  | Version T.Text
-                 | Status T.Text
+                 | Status BuddyStatus
                  | ProfileName
                  | ProfileText
                  | AvatarAlpha
@@ -130,7 +138,10 @@ parseStatus = do
     string "status"
     skipSpace
     st <- takeText
-    return $ Status st
+    return $ Status (read $ capitalized (T.unpack st) :: BuddyStatus)
+  where
+    capitalized [] = []
+    capitalized (x:xs) = C.toUpper x : xs
 
 parseAddMe :: Parser ProtocolMsg
 parseAddMe = do
