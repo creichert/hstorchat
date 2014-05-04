@@ -23,7 +23,8 @@ executable hstorchat
   main-is:             src/Main.hs
   ghc-options:         -Wall -threaded -fno-warn-unused-do-bind
   default-language:    Haskell2010
-  build-depends:       base >=4.6 && <4.7, network, hstorchat, process, hsqml, text
+  build-depends:       base >=4.6 && <4.7, network, hstorchat, process,
+                       hsqml, text
 
 test-suite hstorchat-tests
   type:                exitcode-stdio-1.0
@@ -31,6 +32,5 @@ test-suite hstorchat-tests
   main-is:             Main.hs
   ghc-options:         -Wall
   default-language:    Haskell2010
-  build-depends:       base, test-framework,
-                       test-framework-hunit, test-framework-quickcheck2,
-                       HUnit, QuickCheck, hstorchat
+  build-depends:       base, hstorchat, test-framework, test-framework-hunit,
+                       test-framework-quickcheck2, HUnit, QuickCheck
