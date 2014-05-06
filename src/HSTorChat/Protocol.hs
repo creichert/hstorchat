@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, DeriveDataTypeable #-}
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
 module HSTorChat.Protocol where
 
@@ -7,6 +7,7 @@ import Control.Monad
 import Data.Attoparsec.Text
 import qualified Data.Char as C
 import qualified Data.Text as T
+import Data.Typeable
 import Data.Word
 import Prelude hiding (take)
 import qualified Prelude as P
@@ -53,7 +54,7 @@ data Buddy = Buddy
            , _outConn :: Handle
            , _cookie  :: Cookie -- ^ Cookie sent to buddy.
            , _status  :: BuddyStatus -- * Buddy status
-           } deriving Show
+           } deriving (Show, Typeable)
 
 data BuddyStatus = Offline
                  | Handshake
@@ -87,6 +88,11 @@ data ProtocolMsg = Ping Onion Cookie
                  | FileStopSending
                  | FileStopReceiving
                  deriving Show
+
+data ChatMsg = ChatMsg
+             { text  :: String
+             , buddy :: String
+             } deriving Typeable
 
 parseResponse :: Parser ProtocolMsg
 parseResponse =  try parsePingPong
