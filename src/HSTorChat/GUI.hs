@@ -156,10 +156,10 @@ handleRequest ui iHdl = do
 
                 -- remove the pending connection.
                 modifyMVar_ (_pending ui') (\_ -> return pcs)
-                runBuddy ui b
+                runBuddy b
 
-runBuddy :: ObjRef UI -> ObjRef Buddy -> IO ()
-runBuddy ui objb = do
+runBuddy :: ObjRef Buddy -> IO ()
+runBuddy objb = do
         let b    = fromObjRef objb
             iHdl = _inConn b
             oHdl = _outConn b
@@ -188,4 +188,4 @@ runBuddy ui objb = do
 
         hFlush iHdl
         hFlush oHdl
-        runBuddy ui objb
+        runBuddy objb
