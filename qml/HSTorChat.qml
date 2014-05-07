@@ -92,7 +92,7 @@ Rectangle {
 
     ListView {
         id: msgarea
-        anchors.bottom: msgentry.top
+        anchors.bottom: msgentrylayout.top
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.left: buddylist.right
@@ -107,7 +107,7 @@ Rectangle {
                                                     Text.AlignRight
                                               }
                          width: parent.width
-                         wrapMode: Text.WordWrap
+                         wrapMode: Text.WrapAtWordBoundaryOrAnywhere
                        }
 
         Image {
@@ -119,26 +119,50 @@ Rectangle {
         }
     }
 
-    TextEdit {
-        id: msgentry
+
+   Rectangle {
+        id: msgentrylayout
         anchors.bottom: parent.bottom
         anchors.left: buddylist.right
         anchors.right: parent.right
         anchors.margins: 5
-        height: 50
-        wrapMode: Text.WordWrap
 
-        Keys.onReturnPressed: { if (buddylist.length <= 0) return
-                                sendMsg(buddies[buddylist.currentIndex], msgentry.text)
-                                msgentry.text = ""
-                                msgarea.positionViewAtBeginning()
-                              }
+        width: parent.width; height: 80
+        border.color: "darkgrey"; border.width: 1; radius: 6
 
-        Rectangle {
+        Flickable {
+            id: msgentryflick
             anchors.fill: parent
-            border.width: 1; border.color: "darkgrey"
-            radius: 3
-            z: -5
+            anchors.margins: 2
+
+            contentWidth:  msgentry.paintedWidth
+            contentHeight: msgentry.paintedHeight
+            clip: true
+
+            function ensureVisible(r) {
+                if (contentX >= r.x)
+                    contentX = r.x;
+                else if (contentX+width <= r.x+r.width)
+                    contentX = r.x+r.width-width;
+                if (contentY >= r.y)
+                    contentY = r.y;
+                else if (contentY+height <= r.y+r.height)
+                    contentY = r.y+r.height-height;
+            }
+
+            TextEdit {
+                id: msgentry
+                width:  msgentryflick.width
+                height: msgentryflick.height
+                focus: true
+                wrapMode: TextEdit.Wrap
+                onCursorRectangleChanged: msgentryflick.ensureVisible(cursorRectangle)
+                Keys.onReturnPressed: { if (buddylist.length <= 0) return
+                                        sendMsg(buddies[buddylist.currentIndex], msgentry.text)
+                                        msgentry.text = ""
+                                        msgarea.positionViewAtBeginning()
+                                      }
+            }
         }
     }
 }
