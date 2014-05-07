@@ -3,12 +3,14 @@
 module HSTorChat.Protocol where
 
 import Control.Applicative
+import Control.Concurrent
 import Control.Monad
 import Data.Attoparsec.Text
 import qualified Data.Char as C
 import qualified Data.Text as T
 import Data.Typeable
 import Data.Word
+import Graphics.QML
 import Prelude hiding (take)
 import qualified Prelude as P
 import Network
@@ -36,7 +38,7 @@ hstorchatHost = "127.0.0.1"
 hstorchatOutConn :: Onion -> IO Handle
 hstorchatOutConn onion = do
     outsock <- socksConnectWith (defaultSocksConf "127.0.0.1" 22209) (T.unpack onion) (PortNumber 11009)
-    oHdl <- socketToHandle outsock ReadWriteMode
+    oHdl    <- socketToHandle outsock ReadWriteMode
     hSetBuffering oHdl LineBuffering
     return oHdl
 
@@ -54,7 +56,8 @@ data Buddy = Buddy
            , _outConn :: Handle
            , _cookie  :: Cookie -- ^ Cookie sent to buddy.
            , _status  :: BuddyStatus -- * Buddy status
-           } deriving (Show, Typeable)
+           , _msgs    :: MVar [ObjRef ChatMsg]
+           } deriving (Typeable)
 
 data BuddyStatus = Offline
                  | Handshake
@@ -90,9 +93,10 @@ data ProtocolMsg = Ping Onion Cookie
                  deriving Show
 
 data ChatMsg = ChatMsg
-             { text  :: String
-             , buddy :: String
-             } deriving Typeable
+             { text   :: String
+             , buddy  :: String
+             , fromme :: Bool
+             } deriving (Show, Typeable)
 
 parseResponse :: Parser ProtocolMsg
 parseResponse =  try parsePingPong

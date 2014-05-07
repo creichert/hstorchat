@@ -5,10 +5,6 @@ Rectangle {
     id: root
     width: 500; height: 600
 
-    ListModel {
-        id: buddies
-    }
-
     ListView {
         id: buddylist
         anchors.left: parent.left
@@ -29,14 +25,29 @@ Rectangle {
 
         model: buddies
         delegate: Text {
-                      text: name
+                      width: parent.width
+                      text: modelData.onion
                       color: "white"
                       z: 5
                       MouseArea {
                           anchors.fill: parent
-                          onClicked: { buddylist.currentIndex = index
-                                       msgarea.model = buddies.get(index)["msgs"]
-                                      }
+                          onClicked: { buddylist.currentIndex = index }
+                      }
+
+                      Rectangle {
+                        anchors.right: parent.right
+                        width: 10; height: parent.height
+                        color:  {  if (modelData.status == "Available")
+                                       return "green"
+                                   else if (modelData.status == "Handshake")
+                                       return "steelblue"
+                                   else if (modelData.status == "Away")
+                                       return "yellow"
+                                   else if (modelData.status == "Xa")
+                                       return "orange"
+                                   else
+                                       return "red"
+                                }
                       }
                     }
 
@@ -77,8 +88,12 @@ Rectangle {
         anchors.left: buddylist.right
         anchors.margins: 3
         clip: true
-        delegate: Text { text: name
-                         horizontalAlignment: { if (fromme)
+        verticalLayoutDirection: ListView.BottomToTop
+        model: { if (buddies[buddylist.currentIndex])
+                     buddies[buddylist.currentIndex].msgs
+               }
+        delegate: Text { text: modelData.text
+                         horizontalAlignment: { if (modelData.fromme)
                                                     Text.AlignRight
                                               }
                          width: parent.width
@@ -100,42 +115,18 @@ Rectangle {
         anchors.left: buddylist.right
         anchors.right: parent.right
         anchors.margins: 5
-        enabled: false
 
         onAccepted: { if (buddylist.length <= 0) return
-                      sendMsg(buddies.get(buddylist.currentIndex)["name"], msgentry.text)
-                      buddies.get(buddylist.currentIndex)["msgs"].append({ name: msgentry.text, fromme: true })
-                      msgarea.model = buddies.get(buddylist.currentIndex)["msgs"]
+                      sendMsg(buddies[buddylist.currentIndex], msgentry.text)
                       msgentry.text = ""
-                      msgarea.positionViewAtEnd()
+                      msgarea.positionViewAtBeginning()
                     }
+
         Rectangle {
-           anchors.fill: parent
-           border.width: 1; border.color: "darkgrey"
-           radius: 5
-           z: -5
+            anchors.fill: parent
+            border.width: 1; border.color: "darkgrey"
+            radius: 5
+            z: -5
         }
-    }
-
-    Component.onCompleted: { self.msgReady.connect(msgReceived) }
-    function msgReceived(msg) {
-
-        var buddyFound = false
-        for (var i=0; i < buddies.count; i++) {
-            if (buddies.get(i)["name"] == msg.buddy){
-                buddies.get(i)["msgs"].append({ name: msg.text, fromme: false })
-                msgarea.model = buddies.get(buddylist.currentIndex)["msgs"]
-                buddyFound = true
-            }
-        }
-
-        if (buddyFound == false) {
-            buddies.append({ "name": msg.buddy, "msgs": [ { name: msg.text, fromme: false } ] })
-            /* TODO: Focus the buddy. This will make the next call work. */
-            msgarea.model = buddies.get(buddylist.currentIndex)["msgs"]
-            msgentry.enabled = true
-        }
-
-        msgarea.positionViewAtEnd()
     }
 }
