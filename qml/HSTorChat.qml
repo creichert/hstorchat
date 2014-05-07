@@ -79,6 +79,7 @@ Rectangle {
             focus: true
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
+            validator: RegExpValidator { regExp: /[_\-2-7a-z]+\.onion/ }
 
             Rectangle {
                anchors.fill: parent
