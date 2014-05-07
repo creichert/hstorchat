@@ -38,16 +38,16 @@ Rectangle {
                       Rectangle {
                         anchors.right: parent.right
                         width: 10; height: parent.height
-                        color:  {  if (modelData.status == "Available")
-                                       return "green"
-                                   else if (modelData.status == "Handshake")
-                                       return "steelblue"
-                                   else if (modelData.status == "Away")
-                                       return "yellow"
-                                   else if (modelData.status == "Xa")
-                                       return "orange"
-                                   else
-                                       return "red"
+                        color:  { if (modelData.status == "Available")
+                                      return "green"
+                                  else if (modelData.status == "Handshake")
+                                      return "steelblue"
+                                  else if (modelData.status == "Away")
+                                      return "orange"
+                                  else if (modelData.status == "Xa")
+                                      return "red"
+                                  else
+                                      return "grey"
                                 }
                       }
                     }

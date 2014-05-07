@@ -5,6 +5,7 @@ module HSTorChat.GUI where
 import Control.Concurrent
 import Control.Monad
 import Data.Attoparsec.Text hiding (take)
+import qualified Data.Map as M
 import qualified Data.Text as T
 import Data.Proxy
 import Data.Typeable
@@ -18,7 +19,7 @@ import HSTorChat.Protocol
 data UI = UI
         { _myonion  :: Onion
         , _mystatus :: BuddyStatus
-        , _buddies  :: MVar [ObjRef Buddy]
+        , _buddies  :: MVar (M.Map Onion (ObjRef Buddy))
         , _pending  :: MVar [PendingConnection]
         } deriving Typeable
 
@@ -38,7 +39,8 @@ instance DefaultClass UI where
         ]
       where
         buddies :: ObjRef UI -> IO [ObjRef Buddy]
-        buddies = readMVar . _buddies . fromObjRef
+        buddies ui = do bs <- readMVar . _buddies $ fromObjRef ui
+                        return . snd . unzip $ M.toList bs
 
 instance DefaultClass ChatMsg where
     classMembers = [
@@ -49,13 +51,14 @@ instance DefaultClass ChatMsg where
 
 instance DefaultClass Buddy where
     classMembers = [
-          defPropertyRO "onion" (return . T.pack . _onion . fromObjRef)
-        , defPropertyRO "status" (return . T.pack . show .  _status . fromObjRef)
+          defPropertyRO "onion" (return . _onion . fromObjRef)
+        , defPropertySigRO "status" (Proxy :: Proxy BuddiesChanged) status
         , defPropertySigRO "msgs" (Proxy :: Proxy ChatMsgReady) messages
         ]
       where
         messages :: ObjRef Buddy -> IO [ObjRef ChatMsg]
-        messages =  readMVar . _msgs . fromObjRef
+        messages = readMVar . _msgs . fromObjRef
+        status = return . T.pack . show .  _status . fromObjRef
 
 instance Marshal ChatMsg where
     type MarshalMode ChatMsg c d = ModeObjFrom ChatMsg c
@@ -76,7 +79,7 @@ instance SignalKeyClass BuddiesChanged where
 -- is accessed and used to send the message.
 sendMsg :: ObjRef UI -> ObjRef Buddy -> T.Text -> IO ()
 sendMsg _ bud msg = do
-    saveMsg $ ChatMsg (T.unpack msg) (_onion $ fromObjRef bud) True
+    saveMsg $ ChatMsg (T.unpack msg) (T.unpack $ _onion $ fromObjRef bud) True
     fireSignal (Proxy :: Proxy ChatMsgReady) bud
     hPutStrLn (_outConn $ fromObjRef bud) $ formatMsg $ Message msg
   where
@@ -118,11 +121,12 @@ handleRequest ui iHdl = do
 
                 oHdl <- hstorchatOutConn $ onion `T.append` ".onion"
 
-                p' <- readMVar (_pending ui')
-                b' <- readMVar (_buddies ui')
+                p' <- readMVar $ _pending ui'
+                b' <- readMVar $ _buddies ui'
+
                 -- Send Ping if this Buddy is new or Offline.
                 when ((not $ any ((== key) . _pcookie) p') &&
-                      (not $ any ((/= Offline) . _status) (map fromObjRef b'))
+                      (not $ any ((/= Offline) . _status) (map fromObjRef $ snd . unzip $ M.toList b'))
                      ) $ hPutStrLn oHdl $ formatMsg $ Ping (_myonion ui') cky
 
                 mapM_ (hPutStrLn oHdl . formatMsg) [ Pong key
@@ -153,21 +157,22 @@ handleRequest ui iHdl = do
     pendingConnection (PendingConnection cke o oHdl:pcs) = do
 
                 ms <- newMVar []
-                b <- newObjectDC $ Buddy (T.unpack o) iHdl oHdl cke Available ms
+                b <- newObjectDC $ Buddy o iHdl oHdl cke Offline ms
                 let ui' = fromObjRef ui
 
-                modifyMVar_ (_buddies ui') $ \bs -> return $ b:bs
+                modifyMVar_ (_buddies ui') $ \bs -> return $ M.insert o b bs
                 fireSignal (Proxy :: Proxy BuddiesChanged) ui
 
                 -- remove the pending connection.
                 modifyMVar_ (_pending ui') $ \_ -> return pcs
-                runBuddy b
+                runBuddy ui b
 
-runBuddy :: ObjRef Buddy -> IO ()
-runBuddy objb = do
+runBuddy :: ObjRef UI -> ObjRef Buddy -> IO ()
+runBuddy ui objb = do
         let b    = fromObjRef objb
             iHdl = _inConn b
             oHdl = _outConn b
+            oni  = _onion b
 
         txt <- hGetLine iHdl
         rdy <- hReady oHdl
@@ -185,12 +190,17 @@ runBuddy objb = do
                                                                       , Status Available
                                                                       ]
             Right (Message msg) -> do
-                cmsg <- newObjectDC $ ChatMsg (T.unpack msg) (_onion b) False
+                cmsg <- newObjectDC $ ChatMsg (T.unpack msg) (T.unpack $ _onion b) False
                 modifyMVar_ (_msgs b) (\ms -> return (cmsg:ms))
                 fireSignal (Proxy :: Proxy ChatMsgReady) objb
+
+            Right (Status st) -> do
+                nb <- newObjectDC $ b { _status = st }
+                modifyMVar_ (_buddies $ fromObjRef ui) $ \bs -> return $ M.insert oni nb bs
+                fireSignal (Proxy :: Proxy BuddiesChanged) ui
 
             Right p -> print p
 
         hFlush iHdl
         hFlush oHdl
-        runBuddy objb
+        runBuddy ui objb

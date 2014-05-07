@@ -51,11 +51,11 @@ type Onion  = T.Text
 type Cookie = T.Text
 
 data Buddy = Buddy
-           { _onion   :: String -- ^ Buddy onion address.
+           { _onion   :: Onion -- ^ Buddy onion address.
            , _inConn  :: Handle
            , _outConn :: Handle
            , _cookie  :: Cookie -- ^ Cookie sent to buddy.
-           , _status  :: BuddyStatus -- * Buddy status
+           , _status  :: BuddyStatus -- ^ Buddy status
            , _msgs    :: MVar [ObjRef ChatMsg]
            } deriving (Typeable)
 
@@ -63,7 +63,7 @@ data BuddyStatus = Offline
                  | Handshake
                  | Available
                  | Away
-                 | Xa -- * Extended Away
+                 | Xa -- ^ Extended Away
                  deriving (Eq, Read, Show)
 
 data PendingConnection = PendingConnection

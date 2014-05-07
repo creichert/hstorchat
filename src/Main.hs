@@ -3,6 +3,7 @@ module Main where
 
 import Control.Concurrent
 import Control.Monad
+import qualified Data.Map as M
 import Data.Text as T
 import Graphics.QML
 import Network.Socket
@@ -24,7 +25,7 @@ main = withSocketsDo $ do
     bindSocket sock $ SockAddrInet hstorchatLocalPort li
     listen sock 2
 
-    buddies <- newMVar []
+    buddies <- newMVar M.empty
     p <- newMVar []
 
     onion <- readFile "hidden_service/hostname"
