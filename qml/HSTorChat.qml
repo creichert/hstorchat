@@ -13,14 +13,14 @@ Rectangle {
         anchors.margins: 3
         currentIndex: 0
         clip: true
-        width: 150
+        width: 160
         focus: true
 
         Rectangle {
             anchors.fill: parent
             color: "lightgrey"
             z: -1
-            radius: 5
+            radius: 2
         }
 
         model: buddies
@@ -28,6 +28,7 @@ Rectangle {
                       width: parent.width
                       text: modelData.onion
                       color: "white"
+                      font.pointSize: 11
                       z: 5
                       MouseArea {
                           anchors.fill: parent
@@ -57,6 +58,8 @@ Rectangle {
             id: addbuddy
             text: "+"
             anchors.bottom: parent.bottom
+            anchors.margins: { bottomMargin: 4 }
+            font.pointSize: 15
             MouseArea {
                 anchors.fill: parent
                 onClicked: { newBuddy(newbuddy.text); newbuddy.text = "" }
@@ -68,13 +71,20 @@ Rectangle {
             anchors.left: addbuddy.right
             anchors.right: parent.right
             anchors.bottom: parent.bottom
+            anchors.margins: 2
+            font.bold: true
             text: "icaowvpie7nbbsur"
             maximumLength: 16
+            height: 24
+            focus: true
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
 
             Rectangle {
                anchors.fill: parent
+               anchors.margins: 2
                border.width: 1; border.color: "darkgrey"
-               radius: 5
+               radius: 2
                z: -5
             }
         }
@@ -109,23 +119,25 @@ Rectangle {
         }
     }
 
-    TextInput {
+    TextEdit {
         id: msgentry
         anchors.bottom: parent.bottom
         anchors.left: buddylist.right
         anchors.right: parent.right
         anchors.margins: 5
+        height: 50
+        wrapMode: Text.WordWrap
 
-        onAccepted: { if (buddylist.length <= 0) return
-                      sendMsg(buddies[buddylist.currentIndex], msgentry.text)
-                      msgentry.text = ""
-                      msgarea.positionViewAtBeginning()
-                    }
+        Keys.onReturnPressed: { if (buddylist.length <= 0) return
+                                sendMsg(buddies[buddylist.currentIndex], msgentry.text)
+                                msgentry.text = ""
+                                msgarea.positionViewAtBeginning()
+                              }
 
         Rectangle {
             anchors.fill: parent
             border.width: 1; border.color: "darkgrey"
-            radius: 5
+            radius: 3
             z: -5
         }
     }

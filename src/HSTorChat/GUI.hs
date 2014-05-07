@@ -28,8 +28,7 @@ data BuddiesChanged deriving Typeable
 
 instance DefaultClass UI where
     classMembers = [
-          defPropertySigRO "buddies" (Proxy :: Proxy BuddiesChanged)
-                                     (readMVar . _buddies . fromObjRef :: ObjRef UI -> IO [ObjRef Buddy])
+          defPropertySigRO "buddies" (Proxy :: Proxy BuddiesChanged) buddies
           -- | Return Onion address for this instance of HSTorChat.
         , defMethod "onion" (return . _myonion . fromObjRef :: ObjRef UI -> IO Onion)
           -- | Send a message to a buddy.
@@ -37,6 +36,9 @@ instance DefaultClass UI where
           -- | Add a new buddy.
         , defMethod "newBuddy" newBuddy
         ]
+      where
+        buddies :: ObjRef UI -> IO [ObjRef Buddy]
+        buddies = readMVar . _buddies . fromObjRef
 
 instance DefaultClass ChatMsg where
     classMembers = [
@@ -49,9 +51,11 @@ instance DefaultClass Buddy where
     classMembers = [
           defPropertyRO "onion" (return . T.pack . _onion . fromObjRef)
         , defPropertyRO "status" (return . T.pack . show .  _status . fromObjRef)
-        , defPropertySigRO "msgs" (Proxy :: Proxy ChatMsgReady)
-                (readMVar . _msgs . fromObjRef :: ObjRef Buddy -> IO [ObjRef ChatMsg])
+        , defPropertySigRO "msgs" (Proxy :: Proxy ChatMsgReady) messages
         ]
+      where
+        messages :: ObjRef Buddy -> IO [ObjRef ChatMsg]
+        messages =  readMVar . _msgs . fromObjRef
 
 instance Marshal ChatMsg where
     type MarshalMode ChatMsg c d = ModeObjFrom ChatMsg c
@@ -71,9 +75,10 @@ instance SignalKeyClass BuddiesChanged where
 -- a msg in a chat window. The handle for the buddy
 -- is accessed and used to send the message.
 sendMsg :: ObjRef UI -> ObjRef Buddy -> T.Text -> IO ()
-sendMsg _ bud msg = do saveMsg $ ChatMsg (T.unpack msg) (_onion $ fromObjRef bud) True
-                       fireSignal (Proxy :: Proxy ChatMsgReady) bud
-                       hPutStrLn (_outConn $ fromObjRef bud) $ formatMsg $ Message msg
+sendMsg _ bud msg = do
+    saveMsg $ ChatMsg (T.unpack msg) (_onion $ fromObjRef bud) True
+    fireSignal (Proxy :: Proxy ChatMsgReady) bud
+    hPutStrLn (_outConn $ fromObjRef bud) $ formatMsg $ Message msg
   where
     saveMsg cmsg = modifyMVar_ (_msgs $ fromObjRef bud) (\ms -> do m <- newObjectDC cmsg
                                                                    return (m:ms))
@@ -151,11 +156,11 @@ handleRequest ui iHdl = do
                 b <- newObjectDC $ Buddy (T.unpack o) iHdl oHdl cke Available ms
                 let ui' = fromObjRef ui
 
-                modifyMVar_ (_buddies ui') (\bs -> return (b:bs))
+                modifyMVar_ (_buddies ui') $ \bs -> return $ b:bs
                 fireSignal (Proxy :: Proxy BuddiesChanged) ui
 
                 -- remove the pending connection.
-                modifyMVar_ (_pending ui') (\_ -> return pcs)
+                modifyMVar_ (_pending ui') $ \_ -> return pcs
                 runBuddy b
 
 runBuddy :: ObjRef Buddy -> IO ()
