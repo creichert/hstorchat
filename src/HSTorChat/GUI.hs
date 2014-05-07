@@ -44,8 +44,8 @@ instance DefaultClass UI where
 
 instance DefaultClass ChatMsg where
     classMembers = [
-          defPropertyRO "buddy" (return . T.pack . buddy . fromObjRef)
-        , defPropertyRO "text" (return . T.pack . text . fromObjRef)
+          defPropertyRO "buddy" (return . buddy . fromObjRef)
+        , defPropertyRO "text" (return . text . fromObjRef)
         , defPropertyRO "fromme" (return . fromme . fromObjRef)
         ]
 
@@ -74,12 +74,12 @@ instance SignalKeyClass ChatMsgReady where
 instance SignalKeyClass BuddiesChanged where
     type SignalParams BuddiesChanged = IO ()
 
--- | This method is called when the user enters
+-- | This function is called when the user enters
 -- a msg in a chat window. The handle for the buddy
 -- is accessed and used to send the message.
 sendMsg :: ObjRef UI -> ObjRef Buddy -> T.Text -> IO ()
 sendMsg _ bud msg = do
-    saveMsg $ ChatMsg (T.unpack msg) (T.unpack $ _onion $ fromObjRef bud) True
+    saveMsg $ ChatMsg msg (_onion $ fromObjRef bud) True
     fireSignal (Proxy :: Proxy ChatMsgReady) bud
     hPutStrLn (_outConn $ fromObjRef bud) $ formatMsg $ Message msg
   where
@@ -95,8 +95,6 @@ newBuddy ui onion = do
         gen <- getStdGen
         let  cky = gencookie gen
              ui' = fromObjRef ui
-
-        -- TODO: Add this buddy to the list now and set Offline.
 
         -- Add to list of pending connection.
         -- TODO: Only add unique onion to this list.
@@ -136,7 +134,7 @@ handleRequest ui iHdl = do
                                                    , Status Available
                                                    ]
 
-                modifyMVar_ (_pending ui') (\p -> return (PendingConnection cky onion oHdl:p))
+                modifyMVar_ (_pending ui') $ \p -> return $ PendingConnection cky onion oHdl:p
 
                 handleRequest ui iHdl
 
@@ -190,7 +188,7 @@ runBuddy ui objb = do
                                                                       , Status Available
                                                                       ]
             Right (Message msg) -> do
-                cmsg <- newObjectDC $ ChatMsg (T.unpack msg) (T.unpack $ _onion b) False
+                cmsg <- newObjectDC $ ChatMsg msg (_onion b) False
                 modifyMVar_ (_msgs b) (\ms -> return (cmsg:ms))
                 fireSignal (Proxy :: Proxy ChatMsgReady) objb
 

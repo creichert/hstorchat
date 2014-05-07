@@ -93,8 +93,8 @@ data ProtocolMsg = Ping Onion Cookie
                  deriving Show
 
 data ChatMsg = ChatMsg
-             { text   :: String
-             , buddy  :: String
+             { text   :: T.Text
+             , buddy  :: T.Text
              , fromme :: Bool
              } deriving (Show, Typeable)
 
