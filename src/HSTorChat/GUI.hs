@@ -24,8 +24,9 @@ data UI = UI
         } deriving Typeable
 
 -- Signals
-data ChatMsgReady deriving Typeable
 data BuddiesChanged deriving Typeable
+data ChatMsgReady deriving Typeable
+data BuddyChanged deriving Typeable
 
 instance DefaultClass UI where
     classMembers = [
@@ -52,7 +53,7 @@ instance DefaultClass ChatMsg where
 instance DefaultClass Buddy where
     classMembers = [
           defPropertyRO "onion" (return . _onion . fromObjRef)
-        , defPropertySigRO "status" (Proxy :: Proxy BuddiesChanged) status
+        , defPropertySigRO "status" (Proxy :: Proxy BuddyChanged) status
         , defPropertySigRO "msgs" (Proxy :: Proxy ChatMsgReady) messages
         ]
       where
@@ -68,11 +69,14 @@ instance Marshal Buddy where
     type MarshalMode Buddy c d = ModeObjFrom Buddy c
     marshaller = fromMarshaller fromObjRef
 
+instance SignalKeyClass BuddiesChanged where
+    type SignalParams BuddiesChanged = IO ()
+
 instance SignalKeyClass ChatMsgReady where
     type SignalParams ChatMsgReady = IO ()
 
-instance SignalKeyClass BuddiesChanged where
-    type SignalParams BuddiesChanged = IO ()
+instance SignalKeyClass BuddyChanged where
+    type SignalParams BuddyChanged = IO ()
 
 -- | This function is called when the user enters
 -- a msg in a chat window. The handle for the buddy
@@ -194,8 +198,14 @@ runBuddy ui objb = do
 
             Right (Status st) -> do
                 nb <- newObjectDC $ b { _status = st }
-                modifyMVar_ (_buddies $ fromObjRef ui) $ \bs -> return $ M.insert oni nb bs
+                modifyMVar_ (_buddies $ fromObjRef ui)
+                                      $ \bs -> return $ M.insert oni nb bs
+                -- For now, it is necessary to reload the entire buddylist.
+                -- The buddylist must be notified of the new buddy first (since
+                -- each ObjRef Buddy in the buddylist is immutable.
                 fireSignal (Proxy :: Proxy BuddiesChanged) ui
+                -- Run the new buddy loop.
+                runBuddy ui nb
 
             Right p -> print p
 

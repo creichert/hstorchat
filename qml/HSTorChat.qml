@@ -1,9 +1,33 @@
 
 import QtQuick 2.0
+import QtQuick.Controls 1.1
+import QtQuick.Layouts 1.1
 
-Rectangle {
-    id: root
+ApplicationWindow {
     width: 500; height: 600
+    title: "HSTorChat"
+    visible: true
+
+    toolBar: ToolBar {
+        RowLayout {
+            anchors.fill: parent
+            ToolButton {
+                id: addBuddyButton
+                anchors.right: parent.right
+                text: "add"
+                onClicked: { newBuddy(newbuddy.text); newbuddy.text = "" }
+            }
+
+            TextField {
+                id: newbuddy
+                anchors.right: addBuddyButton.left
+                maximumLength: 16
+                focus: true
+                validator: RegExpValidator { regExp: /[_\-2-7a-z]+\.onion/ }
+                placeholderText: "New buddy..."
+            }
+        }
+    }
 
     ListView {
         id: buddylist
@@ -53,42 +77,6 @@ Rectangle {
                     }
 
         highlight: Rectangle { color: "grey"; radius: 2 }
-
-        Text {
-            id: addbuddy
-            text: "+"
-            anchors.bottom: parent.bottom
-            anchors.margins: { bottomMargin: 4 }
-            font.pointSize: 15
-            MouseArea {
-                anchors.fill: parent
-                onClicked: { newBuddy(newbuddy.text); newbuddy.text = "" }
-            }
-        }
-
-        TextInput {
-            id: newbuddy
-            anchors.left: addbuddy.right
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            anchors.margins: 2
-            font.bold: true
-            text: "icaowvpie7nbbsur"
-            maximumLength: 16
-            height: 24
-            focus: true
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            validator: RegExpValidator { regExp: /[_\-2-7a-z]+\.onion/ }
-
-            Rectangle {
-               anchors.fill: parent
-               anchors.margins: 2
-               border.width: 1; border.color: "darkgrey"
-               radius: 2
-               z: -5
-            }
-        }
     }
 
     ListView {
@@ -101,8 +89,7 @@ Rectangle {
         clip: true
         verticalLayoutDirection: ListView.BottomToTop
         model: { if (buddies[buddylist.currentIndex])
-                     buddies[buddylist.currentIndex].msgs
-               }
+                     buddies[buddylist.currentIndex].msgs }
         delegate: Text { text: modelData.text
                          horizontalAlignment: { if (modelData.fromme)
                                                     Text.AlignRight
