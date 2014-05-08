@@ -36,7 +36,7 @@ instance DefaultClass UI where
           -- | Send a message to a buddy.
         , defMethod "sendMsg" sendMsg
           -- | Add a new buddy.
-        , defMethod "newBuddy" newBuddy
+        , defMethod "newBuddy" onNewBuddy
         ]
       where
         buddies :: ObjRef UI -> IO [ObjRef Buddy]
@@ -90,68 +90,68 @@ sendMsg _ bud msg = do
     saveMsg cmsg = modifyMVar_ (_msgs $ fromObjRef bud) (\ms -> do m <- newObjectDC cmsg
                                                                    return (m:ms))
 
-newBuddy :: ObjRef UI -> T.Text -> IO ()
-newBuddy ui onion = do
-        putStrLn $ "Requesting buddy connection: " ++ T.unpack onion
+onNewBuddy :: ObjRef UI -> T.Text -> IO ()
+onNewBuddy ui onion = do
+    putStrLn $ "Requesting buddy connection: " ++ T.unpack onion
 
-        oHdl <- hstorchatOutConn $ onion `T.append` ".onion"
+    oHdl <- hstorchatOutConn $ onion `T.append` ".onion"
 
-        gen <- getStdGen
-        let  cky = gencookie gen
-             ui' = fromObjRef ui
+    gen <- getStdGen
+    let  cky = gencookie gen
+         ui' = fromObjRef ui
 
-        -- Add to list of pending connection.
-        -- TODO: Only add unique onion to this list.
-        modifyMVar_ (_pending ui') (\p -> return (PendingConnection cky onion oHdl:p))
-        hPutStrLn oHdl $ formatMsg $ Ping (_myonion ui') cky
+    -- Add to list of pending connection.
+    -- TODO: Only add unique onion to this list.
+    modifyMVar_ (_pending ui') (\p -> return (PendingConnection cky onion oHdl:p))
+    hPutStrLn oHdl $ formatMsg $ Ping (_myonion ui') cky
 
 -- | This loop handles the initial Ping.
 handleRequest :: ObjRef UI -> Handle -> IO ()
 handleRequest ui iHdl = do
 
-        txt <- hGetLine iHdl
-        case parseOnly parsePingPong (T.pack txt) of
+    txt <- hGetLine iHdl
+    case parseOnly parsePingPong (T.pack txt) of
 
-            Left e  -> putStr "Error parsing incoming connection: " >> print e
+        Left e  -> putStr "Error parsing incoming connection: " >> print e
 
-            -- A Ping here means there is a new connection request.
-            Right (Ping onion key) -> do
+        -- A Ping here means there is a new connection request.
+        Right (Ping onion key) -> do
 
-                gen <- getStdGen
-                let cky = gencookie gen
-                    ui' = fromObjRef ui
+            gen <- getStdGen
+            let cky = gencookie gen
+                ui' = fromObjRef ui
 
-                oHdl <- hstorchatOutConn $ onion `T.append` ".onion"
+            oHdl <- hstorchatOutConn $ onion `T.append` ".onion"
 
-                p' <- readMVar $ _pending ui'
-                b' <- readMVar $ _buddies ui'
+            p' <- readMVar $ _pending ui'
+            b' <- readMVar $ _buddies ui'
 
-                -- Send Ping if this Buddy is new or Offline.
-                when ((not $ any ((== key) . _pcookie) p') &&
-                      (not $ any ((/= Offline) . _status) (map fromObjRef $ snd . unzip $ M.toList b'))
-                     ) $ hPutStrLn oHdl $ formatMsg $ Ping (_myonion ui') cky
+            -- Send Ping if this Buddy is new or Offline.
+            when ((not $ any ((== key) . _pcookie) p') &&
+                  (not $ any ((/= Offline) . _status) (map fromObjRef $ snd . unzip $ M.toList b'))
+                 ) $ hPutStrLn oHdl $ formatMsg $ Ping (_myonion ui') cky
 
-                mapM_ (hPutStrLn oHdl . formatMsg) [ Pong key
-                                                   , Client "HSTorChat"
-                                                   , Version "0.1.0.0"
-                                                   , AddMe
-                                                   , Status Available
-                                                   ]
+            mapM_ (hPutStrLn oHdl . formatMsg) [ Pong key
+                                               , Client "HSTorChat"
+                                               , Version "0.1.0.0"
+                                               , AddMe
+                                               , Status Available
+                                               ]
 
-                modifyMVar_ (_pending ui') $ \p -> return $ PendingConnection cky onion oHdl:p
+            modifyMVar_ (_pending ui') $ \p -> return $ PendingConnection cky onion oHdl:p
 
-                handleRequest ui iHdl
+            handleRequest ui iHdl
 
-            -- All buddies must authenticate using the cookie we sent.
-            Right (Pong key) -> do
+        -- All buddies must authenticate using the cookie we sent.
+        Right (Pong key) -> do
 
-                let ui' = fromObjRef ui
-                p <- readMVar (_pending ui')
+            let ui' = fromObjRef ui
+            p <- readMVar (_pending ui')
 
-                -- Filter all matching keys. Very important for security
-                pendingConnection $ filter ((== key) . _pcookie) p
+            -- Filter all matching keys. Very important for security
+            pendingConnection $ filter ((== key) . _pcookie) p
 
-            _ -> putStrLn "Buddy is not authenticated yet. Ignoring message."
+        _ -> putStrLn "Buddy is not authenticated yet. Ignoring message."
   where
     pendingConnection :: [PendingConnection] -> IO ()
     pendingConnection [] = putStrLn "Security Warning: Attempted connection with unidentified cookie."
@@ -171,44 +171,44 @@ handleRequest ui iHdl = do
 
 runBuddy :: ObjRef UI -> ObjRef Buddy -> IO ()
 runBuddy ui objb = do
-        let b    = fromObjRef objb
-            iHdl = _inConn b
-            oHdl = _outConn b
-            oni  = _onion b
+    let b    = fromObjRef objb
+        iHdl = _inConn b
+        oHdl = _outConn b
+        oni  = _onion b
 
-        txt <- hGetLine iHdl
-        rdy <- hReady oHdl
-        when rdy $ do out_txt <- hGetLine oHdl
-                      putStrLn $ "Outgoing connection message: " ++ out_txt
+    txt <- hGetLine iHdl
+    rdy <- hReady oHdl
+    when rdy $ do out_txt <- hGetLine oHdl
+                  putStrLn $ "Outgoing connection message: " ++ out_txt
 
-        case parseOnly parseResponse (T.pack txt) of
+    case parseOnly parseResponse (T.pack txt) of
 
-            Left e -> putStr "Error parsing incoming message: " >> print e >> hClose iHdl
+        Left e -> putStr "Error parsing incoming message: " >> print e >> hClose iHdl
 
-            Right (Ping _ key') -> mapM_ (hPutStrLn oHdl . formatMsg) [ Pong key'
-                                                                      , Client "HSTorChat"
-                                                                      , Version "0.1.0.0"
-                                                                      , AddMe
-                                                                      , Status Available
-                                                                      ]
-            Right (Message msg) -> do
-                cmsg <- newObjectDC $ ChatMsg msg (_onion b) False
-                modifyMVar_ (_msgs b) (\ms -> return (cmsg:ms))
-                fireSignal (Proxy :: Proxy ChatMsgReady) objb
+        Right (Ping _ key') -> mapM_ (hPutStrLn oHdl . formatMsg) [ Pong key'
+                                                                  , Client "HSTorChat"
+                                                                  , Version "0.1.0.0"
+                                                                  , AddMe
+                                                                  , Status Available
+                                                                  ]
+        Right (Message msg) -> do
+            cmsg <- newObjectDC $ ChatMsg msg (_onion b) False
+            modifyMVar_ (_msgs b) (\ms -> return (cmsg:ms))
+            fireSignal (Proxy :: Proxy ChatMsgReady) objb
 
-            Right (Status st) -> do
-                nb <- newObjectDC $ b { _status = st }
-                modifyMVar_ (_buddies $ fromObjRef ui)
-                                      $ \bs -> return $ M.insert oni nb bs
-                -- For now, it is necessary to reload the entire buddylist.
-                -- The buddylist must be notified of the new buddy first (since
-                -- each ObjRef Buddy in the buddylist is immutable.
-                fireSignal (Proxy :: Proxy BuddiesChanged) ui
-                -- Run the new buddy loop.
-                runBuddy ui nb
+        Right (Status st) -> do
+            nb <- newObjectDC $ b { _status = st }
+            modifyMVar_ (_buddies $ fromObjRef ui)
+                                  $ \bs -> return $ M.insert oni nb bs
+            -- For now, it is necessary to reload the entire buddylist.
+            -- The buddylist must be notified of the new buddy first (since
+            -- each ObjRef Buddy in the buddylist is immutable.
+            fireSignal (Proxy :: Proxy BuddiesChanged) ui
+            -- Run the new buddy loop.
+            runBuddy ui nb
 
-            Right p -> print p
+        Right p -> print p
 
-        hFlush iHdl
-        hFlush oHdl
-        runBuddy ui objb
+    hFlush iHdl
+    hFlush oHdl
+    runBuddy ui objb
