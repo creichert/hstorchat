@@ -158,16 +158,16 @@ handleRequest ui iHdl = do
     -- | A pending connection exists. Verify and start the buddy
     pendingConnection (PendingConnection cke o oHdl:pcs) = do
 
-                ms <- newMVar []
-                b <- newObjectDC $ Buddy o iHdl oHdl cke Offline ms
-                let ui' = fromObjRef ui
+        ms <- newMVar []
+        b <- newObjectDC $ Buddy o iHdl oHdl cke Offline ms
+        let ui' = fromObjRef ui
 
-                modifyMVar_ (_buddies ui') $ \bs -> return $ M.insert o b bs
-                fireSignal (Proxy :: Proxy BuddiesChanged) ui
+        modifyMVar_ (_buddies ui') $ \bs -> return $ M.insert o b bs
+        fireSignal (Proxy :: Proxy BuddiesChanged) ui
 
-                -- remove the pending connection.
-                modifyMVar_ (_pending ui') $ \_ -> return pcs
-                runBuddy ui b
+        -- remove the pending connection.
+        modifyMVar_ (_pending ui') $ \_ -> return pcs
+        runBuddy ui b
 
 runBuddy :: ObjRef UI -> ObjRef Buddy -> IO ()
 runBuddy ui objb = do
@@ -183,7 +183,7 @@ runBuddy ui objb = do
 
     case parseOnly parseResponse (T.pack txt) of
 
-        Left e -> putStr "Error parsing incoming message: " >> print e >> hClose iHdl
+        Left e -> putStr "Error parsing incoming message: " >> print e
 
         Right (Ping _ key') -> mapM_ (hPutStrLn oHdl . formatMsg) [ Pong key'
                                                                   , Client "HSTorChat"
