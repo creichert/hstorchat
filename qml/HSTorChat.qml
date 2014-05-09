@@ -11,13 +11,10 @@ ApplicationWindow {
     toolBar: ToolBar {
         RowLayout {
             anchors.fill: parent
-            ToolButton {
-                id: addBuddyButton
-                anchors.right: parent.right
-                text: "add"
-                onClicked: { newBuddy(newbuddy.text); newbuddy.text = "" }
+            ComboBox {
+                model: [ "Available", "Away", "Extended Away" ]
+                onCurrentIndexChanged: { setStatus(model[currentIndex]); console.debug(model[currentIndex]) }
             }
-
             TextField {
                 id: newbuddy
                 anchors.right: addBuddyButton.left
@@ -25,6 +22,12 @@ ApplicationWindow {
                 focus: true
                 validator: RegExpValidator { regExp: /[_\-2-7a-z]+\.onion/ }
                 placeholderText: "New buddy..."
+            }
+            ToolButton {
+                id: addBuddyButton
+                anchors.right: parent.right
+                text: "add"
+                onClicked: { newBuddy(newbuddy.text); newbuddy.text = "" }
             }
         }
     }

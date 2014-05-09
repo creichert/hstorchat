@@ -38,7 +38,8 @@ instance DefaultClass UI where
           -- | Send a message to a buddy.
         , defMethod "sendMsg" sendMsg
           -- | Add a new buddy.
-        , defMethod "newBuddy" onNewBuddy
+        , defMethod "newBuddy" newBuddy
+        , defMethod "setStatus" statusChanged
         ]
       where
         buddies :: ObjRef UI -> IO [ObjRef Buddy]
@@ -98,8 +99,8 @@ sendMsg _ bud msg
           saveMsg cmsg = modifyMVar_ (_msgs $ fromObjRef bud) (\ms -> do m <- newObjectDC cmsg
                                                                          return (m:ms))
 
-onNewBuddy :: ObjRef UI -> T.Text -> IO ()
-onNewBuddy ui onion = do
+newBuddy :: ObjRef UI -> T.Text -> IO ()
+newBuddy ui onion = do
     putStrLn $ "Requesting buddy connection: " ++ T.unpack onion
 
     oHdl <- hstorchatOutConn $ onion `T.append` ".onion"
@@ -112,6 +113,20 @@ onNewBuddy ui onion = do
     -- TODO: Only add unique onion to this list.
     modifyMVar_ (_pending ui') (\p -> return (PendingConnection cky onion oHdl:p))
     hPutStrLn oHdl $ formatMsg $ Ping (_myonion ui') cky
+
+statusChanged :: ObjRef UI -> T.Text -> IO ()
+statusChanged ui status
+    | T.unpack status == "Away" = alert Away
+    | T.unpack status == "Extended Away" = alert Xa
+    | otherwise = alert Available
+  where
+    alert st = do bs' <- readMVar . _buddies $ fromObjRef ui
+                  bs  <- return $ map fromObjRef $ snd . unzip $ M.toList bs'
+                  -- tell online buddies status.
+                  tell (online bs) $ Status st
+    online = filter $ (/= Offline) . _status
+    tell    [] _ = return ()
+    tell    (Buddy _ _ oHdl _ _ _:bs) st = hPutStrLn oHdl (formatMsg st) >> tell bs st
 
 -- | This loop handles the initial Ping.
 handleRequest :: ObjRef UI -> Handle -> IO ()
@@ -135,10 +150,8 @@ handleRequest ui iHdl = do
             b' <- readMVar $ _buddies ui'
 
             -- Send Ping if this Buddy is new or Offline.
-            when ((not $ any ((== key) . _pcookie) p') &&
-                  (not $ any ((/= Offline) . _status) (map fromObjRef $ snd . unzip $ M.toList b'))
-                 ) $ hPutStrLn oHdl $ formatMsg $ Ping (_myonion ui') cky
-
+            let b = M.lookup onion b'
+            when (pending p' key || offline b) $ hPutStrLn oHdl $ formatMsg $ Ping (_myonion ui') cky
             mapM_ (hPutStrLn oHdl . formatMsg) [ Pong key
                                                , Client "HSTorChat"
                                                , Version "0.1.0.0"
@@ -161,6 +174,9 @@ handleRequest ui iHdl = do
 
         _ -> putStrLn "Buddy is not authenticated yet. Ignoring message."
   where
+    pending ps key = not $ any ((== key) . _pcookie) ps
+    offline Nothing = True
+    offline (Just b) = (_status . fromObjRef) b == Offline
     pendingConnection :: [PendingConnection] -> IO ()
     pendingConnection [] = putStrLn "Security Warning: Attempted connection with unidentified cookie."
     -- | A pending connection exists. Verify and start the buddy
@@ -184,15 +200,10 @@ runBuddy ui objb = do
         oHdl = _outConn b
         oni  = _onion b
 
-    txt <- hGetLine iHdl `catch` (\e -> if isEOFError e then return "status offline"
-                                                        else ioError e)
-    rdy <- hReady oHdl
-    when rdy $ do out_txt <- hGetLine oHdl
-                  putStrLn $ "Outgoing connection message: " ++ out_txt
-
+    txt <- hGetLine iHdl `catch` errorHandler
     case parseOnly parseResponse (T.pack txt) of
 
-        Left e -> putStr "Error parsing incoming message: " >> print e
+        Left e -> (print $ "Error parsing incoming message: " ++ e) >> runBuddy ui objb
 
         Right (Ping _ key') -> do
             mapM_ (hPutStrLn oHdl . formatMsg) [ Pong key'
@@ -230,3 +241,7 @@ runBuddy ui objb = do
             runBuddy ui nb
 
         Right p -> print p >> runBuddy ui objb
+  where
+      errorHandler e
+        | isEOFError e = return "status offline"
+        | otherwise    = ioError e
