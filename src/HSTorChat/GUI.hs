@@ -110,8 +110,7 @@ newBuddy ui onion = do
          ui' = fromObjRef ui
 
     -- Add to list of pending connection.
-    -- TODO: Only add unique onion to this list.
-    modifyMVar_ (_pending ui') (\p -> return (PendingConnection cky onion oHdl:p))
+    modifyMVar_ (_pending ui') $ \p -> return $ PendingConnection cky onion oHdl : filter ((/= onion) . _ponion) p
     hPutStrLn oHdl $ formatMsg $ Ping (_myonion ui') cky
 
 statusChanged :: ObjRef UI -> T.Text -> IO ()
@@ -125,12 +124,14 @@ statusChanged ui status
                   -- tell online buddies status.
                   tell (online bs) $ Status st
     online = filter $ (/= Offline) . _status
-    tell    [] _ = return ()
-    tell    (Buddy _ _ oHdl _ _ _:bs) st = hPutStrLn oHdl (formatMsg st) >> tell bs st
+    tell [] _ = return ()
+    tell (Buddy _ _ oHdl _ _ _:bs) st = hPutStrLn oHdl (formatMsg st) >> tell bs st
 
 -- | This loop handles the initial Ping.
 handleRequest :: ObjRef UI -> Handle -> IO ()
 handleRequest ui iHdl = do
+
+    let ui' = fromObjRef ui
 
     txt <- hGetLine iHdl
     case parseOnly parsePingPong (T.pack txt) of
@@ -140,57 +141,47 @@ handleRequest ui iHdl = do
         -- A Ping here means there is a new connection request.
         Right (Ping onion key) -> do
 
-            gen <- getStdGen
-            let cky = gencookie gen
-                ui' = fromObjRef ui
-
+            gen  <- getStdGen
+            p'   <- readMVar $ _pending ui'
             oHdl <- hstorchatOutConn $ onion `T.append` ".onion"
 
-            p' <- readMVar $ _pending ui'
-            b' <- readMVar $ _buddies ui'
+            let cky = gencookie gen
+                sendping = not $ pending p' key -- Already pending
 
-            -- Send Ping if this Buddy is new or Offline.
-            let b = M.lookup onion b'
-            when (pending p' key || offline b) $ hPutStrLn oHdl $ formatMsg $ Ping (_myonion ui') cky
+            when sendping $ hPutStrLn oHdl $ formatMsg $ Ping (_myonion ui') cky
             mapM_ (hPutStrLn oHdl . formatMsg) [ Pong key
                                                , Client "HSTorChat"
                                                , Version "0.1.0.0"
                                                , AddMe
                                                , Status Available
                                                ]
-
-            modifyMVar_ (_pending ui') $ \p -> return $ PendingConnection cky onion oHdl:p
-
+            modifyMVar_ (_pending ui') $ \_ -> return $ PendingConnection cky onion oHdl : filter ((/= onion) . _ponion) p'
             handleRequest ui iHdl
 
         -- All buddies must authenticate using the cookie we sent.
         Right (Pong key) -> do
-
-            let ui' = fromObjRef ui
-            p <- readMVar (_pending ui')
-
-            -- Filter all matching keys. Very important for security
+            p <- readMVar $ _pending ui'
             pendingConnection $ filter ((== key) . _pcookie) p
 
         _ -> putStrLn "Buddy is not authenticated yet. Ignoring message."
   where
-    pending ps key = not $ any ((== key) . _pcookie) ps
-    offline Nothing = True
-    offline (Just b) = (_status . fromObjRef) b == Offline
+    pending ps key = any ((== key) . _pcookie) ps
+    -- offline Nothing = True
+    -- offline (Just b) = (_status . fromObjRef) b == Offline
     pendingConnection :: [PendingConnection] -> IO ()
     pendingConnection [] = putStrLn "Security Warning: Attempted connection with unidentified cookie."
     -- | A pending connection exists. Verify and start the buddy
-    pendingConnection (PendingConnection cke o oHdl:pcs) = do
+    pendingConnection (PendingConnection cke o oHdl:_) = do
 
         ms <- newMVar []
         b <- newObjectDC $ Buddy o iHdl oHdl cke Offline ms
         let ui' = fromObjRef ui
 
+        -- Filter this connection.
+        modifyMVar_ (_pending ui') $ \ps -> return $ filter ((/= cke) . _pcookie) ps
         modifyMVar_ (_buddies ui') $ \bs -> return $ M.insert o b bs
         fireSignal (Proxy :: Proxy BuddiesChanged) ui
 
-        -- remove the pending connection.
-        modifyMVar_ (_pending ui') $ \_ -> return pcs
         runBuddy ui b
 
 runBuddy :: ObjRef UI -> ObjRef Buddy -> IO ()
@@ -203,7 +194,7 @@ runBuddy ui objb = do
     txt <- hGetLine iHdl `catch` errorHandler
     case parseOnly parseResponse (T.pack txt) of
 
-        Left e -> (print $ "Error parsing incoming message: " ++ e) >> runBuddy ui objb
+        Left e -> print ("Error parsing incoming message: " ++ e) >> runBuddy ui objb
 
         Right (Ping _ key') -> do
             mapM_ (hPutStrLn oHdl . formatMsg) [ Pong key'
