@@ -65,6 +65,7 @@ ApplicationWindow {
                       Rectangle {
                         anchors.right: parent.right
                         width: 10; height: parent.height
+                        radius: 10
                         color:  { if (modelData.status == "Available")
                                       return "green"
                                   else if (modelData.status == "Handshake")

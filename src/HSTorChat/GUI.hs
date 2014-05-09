@@ -166,23 +166,31 @@ handleRequest ui iHdl = do
         _ -> putStrLn "Buddy is not authenticated yet. Ignoring message."
   where
     pending ps key = any ((== key) . _pcookie) ps
-    -- offline Nothing = True
-    -- offline (Just b) = (_status . fromObjRef) b == Offline
     pendingConnection :: [PendingConnection] -> IO ()
     pendingConnection [] = putStrLn "Security Warning: Attempted connection with unidentified cookie."
     -- | A pending connection exists. Verify and start the buddy
     pendingConnection (PendingConnection cke o oHdl:_) = do
 
-        ms <- newMVar []
-        b <- newObjectDC $ Buddy o iHdl oHdl cke Offline ms
         let ui' = fromObjRef ui
+        bs <- readMVar $ _buddies ui'
+        bud <- constructBuddy $ M.lookup o bs
 
         -- Filter this connection.
         modifyMVar_ (_pending ui') $ \ps -> return $ filter ((/= cke) . _pcookie) ps
-        modifyMVar_ (_buddies ui') $ \bs -> return $ M.insert o b bs
+        modifyMVar_ (_buddies ui') $ \buds -> return $ M.insert o bud buds
         fireSignal (Proxy :: Proxy BuddiesChanged) ui
 
-        runBuddy ui b
+        runBuddy ui bud
+      where
+        constructBuddy :: Maybe (ObjRef Buddy) -> IO (ObjRef Buddy)
+        constructBuddy Nothing  = do ms <- newMVar []
+                                     newObjectDC $ Buddy o iHdl oHdl cke Handshake ms
+        constructBuddy (Just b) = do let b' = fromObjRef b
+                                     newObjectDC $ b' { _inConn = iHdl
+                                                      , _outConn = oHdl
+                                                      , _cookie = cke
+                                                      , _status = Handshake
+                                                      , _msgs = _msgs b' }
 
 runBuddy :: ObjRef UI -> ObjRef Buddy -> IO ()
 runBuddy ui objb = do
