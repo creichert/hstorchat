@@ -3,6 +3,7 @@
 module HSTorChat.GUI where
 
 import Control.Concurrent
+import Control.Exception
 import Control.Monad
 import Data.Attoparsec.Text hiding (take)
 import qualified Data.Map as M
@@ -11,6 +12,7 @@ import Data.Proxy
 import Data.Typeable
 import Graphics.QML
 import System.IO
+import System.IO.Error
 import System.Random
 
 import HSTorChat.Protocol
@@ -82,13 +84,19 @@ instance SignalKeyClass BuddyChanged where
 -- a msg in a chat window. The handle for the buddy
 -- is accessed and used to send the message.
 sendMsg :: ObjRef UI -> ObjRef Buddy -> T.Text -> IO ()
-sendMsg _ bud msg = do
-    saveMsg $ ChatMsg msg (_onion $ fromObjRef bud) True
-    fireSignal (Proxy :: Proxy ChatMsgReady) bud
-    hPutStrLn (_outConn $ fromObjRef bud) $ formatMsg $ Message msg
-  where
-    saveMsg cmsg = modifyMVar_ (_msgs $ fromObjRef bud) (\ms -> do m <- newObjectDC cmsg
-                                                                   return (m:ms))
+sendMsg _ bud msg
+    | null (T.unpack msg) = putStrLn "Ignoring empty request."
+    -- Check if buddy is offline
+    | (_status . fromObjRef) bud == Offline = putStrLn "[delayed] msg not supported yet."
+    -- buddy should be able to receive the message
+    -- TODO: Implement gaurd to check _outConn status.
+    | otherwise = do
+          saveMsg $ ChatMsg msg (_onion $ fromObjRef bud) True
+          fireSignal (Proxy :: Proxy ChatMsgReady) bud
+          hPutStrLn (_outConn $ fromObjRef bud) $ formatMsg $ Message msg
+        where
+          saveMsg cmsg = modifyMVar_ (_msgs $ fromObjRef bud) (\ms -> do m <- newObjectDC cmsg
+                                                                         return (m:ms))
 
 onNewBuddy :: ObjRef UI -> T.Text -> IO ()
 onNewBuddy ui onion = do
@@ -176,7 +184,8 @@ runBuddy ui objb = do
         oHdl = _outConn b
         oni  = _onion b
 
-    txt <- hGetLine iHdl
+    txt <- hGetLine iHdl `catch` (\e -> if isEOFError e then return "status offline"
+                                                        else ioError e)
     rdy <- hReady oHdl
     when rdy $ do out_txt <- hGetLine oHdl
                   putStrLn $ "Outgoing connection message: " ++ out_txt
@@ -185,16 +194,29 @@ runBuddy ui objb = do
 
         Left e -> putStr "Error parsing incoming message: " >> print e
 
-        Right (Ping _ key') -> mapM_ (hPutStrLn oHdl . formatMsg) [ Pong key'
-                                                                  , Client "HSTorChat"
-                                                                  , Version "0.1.0.0"
-                                                                  , AddMe
-                                                                  , Status Available
-                                                                  ]
+        Right (Ping _ key') -> do
+            mapM_ (hPutStrLn oHdl . formatMsg) [ Pong key'
+                                               , Client "HSTorChat"
+                                               , Version "0.1.0.0"
+                                               , AddMe
+                                               , Status Available
+                                               ]
+            runBuddy ui objb
+
         Right (Message msg) -> do
             cmsg <- newObjectDC $ ChatMsg msg (_onion b) False
             modifyMVar_ (_msgs b) (\ms -> return (cmsg:ms))
             fireSignal (Proxy :: Proxy ChatMsgReady) objb
+            runBuddy ui objb
+
+        Right (Status Offline) -> do
+            nb <- newObjectDC $ b { _status = Offline }
+            modifyMVar_ (_buddies $ fromObjRef ui)
+                                  $ \bs -> return $ M.insert oni nb bs
+            fireSignal (Proxy :: Proxy BuddiesChanged) ui
+            -- Cleanup handles.
+            hClose iHdl
+            hClose oHdl
 
         Right (Status st) -> do
             nb <- newObjectDC $ b { _status = st }
@@ -207,8 +229,4 @@ runBuddy ui objb = do
             -- Run the new buddy loop.
             runBuddy ui nb
 
-        Right p -> print p
-
-    hFlush iHdl
-    hFlush oHdl
-    runBuddy ui objb
+        Right p -> print p >> runBuddy ui objb
