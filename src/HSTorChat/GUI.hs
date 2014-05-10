@@ -27,7 +27,7 @@ data UI = UI
 
 -- Signals
 data BuddiesChanged deriving Typeable
-data ChatMsgReady deriving Typeable
+data NewChatMsg deriving Typeable
 data BuddyChanged deriving Typeable
 
 instance DefaultClass UI where
@@ -57,7 +57,7 @@ instance DefaultClass Buddy where
     classMembers = [
           defPropertyRO "onion" (return . _onion . fromObjRef)
         , defPropertySigRO "status" (Proxy :: Proxy BuddyChanged) status
-        , defPropertySigRO "msgs" (Proxy :: Proxy ChatMsgReady) messages
+        , defPropertySigRO "msgs" (Proxy :: Proxy NewChatMsg) messages
         ]
       where
         messages :: ObjRef Buddy -> IO [ObjRef ChatMsg]
@@ -75,8 +75,8 @@ instance Marshal Buddy where
 instance SignalKeyClass BuddiesChanged where
     type SignalParams BuddiesChanged = IO ()
 
-instance SignalKeyClass ChatMsgReady where
-    type SignalParams ChatMsgReady = IO ()
+instance SignalKeyClass NewChatMsg where
+    type SignalParams NewChatMsg = IO ()
 
 instance SignalKeyClass BuddyChanged where
     type SignalParams BuddyChanged = IO ()
@@ -93,7 +93,7 @@ sendMsg _ bud msg
     -- TODO: Implement gaurd to check _outConn status.
     | otherwise = do
           saveMsg $ ChatMsg msg (_onion $ fromObjRef bud) True
-          fireSignal (Proxy :: Proxy ChatMsgReady) bud
+          fireSignal (Proxy :: Proxy NewChatMsg) bud
           hPutStrLn (_outConn $ fromObjRef bud) $ formatMsg $ Message msg
         where
           saveMsg cmsg = modifyMVar_ (_msgs $ fromObjRef bud) (\ms -> do m <- newObjectDC cmsg
@@ -146,15 +146,15 @@ handleRequest ui iHdl = do
             oHdl <- hstorchatOutConn $ onion `T.append` ".onion"
 
             let cky = gencookie gen
-                sendping = not $ pending p' key -- Already pending
+                reply = not $ pending p' key -- Already pending
 
-            when sendping $ hPutStrLn oHdl $ formatMsg $ Ping (_myonion ui') cky
-            mapM_ (hPutStrLn oHdl . formatMsg) [ Pong key
-                                               , Client "HSTorChat"
-                                               , Version "0.1.0.0"
-                                               , AddMe
-                                               , Status Available
-                                               ]
+            when reply $ mapM_ (hPutStrLn oHdl . formatMsg) [ Ping (_myonion ui') cky
+                                                            , Pong key
+                                                            , Client "HSTorChat"
+                                                            , Version "0.1.0.0"
+                                                            , AddMe
+                                                            , Status Available
+                                                            ]
             modifyMVar_ (_pending ui') $ \_ -> return $ PendingConnection cky onion oHdl : filter ((/= onion) . _ponion) p'
             handleRequest ui iHdl
 
@@ -216,7 +216,7 @@ runBuddy ui objb = do
         Right (Message msg) -> do
             cmsg <- newObjectDC $ ChatMsg msg (_onion b) False
             modifyMVar_ (_msgs b) (\ms -> return (cmsg:ms))
-            fireSignal (Proxy :: Proxy ChatMsgReady) objb
+            fireSignal (Proxy :: Proxy NewChatMsg) objb
             runBuddy ui objb
 
         Right (Status Offline) -> do
