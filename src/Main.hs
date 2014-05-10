@@ -10,6 +10,7 @@ import Network.Socket
 import System.IO
 import System.Process
 
+import HSTorChat.Client
 import HSTorChat.GUI
 import HSTorChat.Protocol
 
@@ -39,7 +40,7 @@ main = withSocketsDo $ do
         (insock,_) <- accept sock
         iHdl <- socketToHandle insock ReadWriteMode
         hSetBuffering iHdl LineBuffering
-        forkIO $ handleRequest ui iHdl
+        forkIO $ newConnectionRequest ui iHdl
 
     runEngineLoop defaultEngineConfig {
         initialDocument    = fileDocument "qml/HSTorChat.qml"

@@ -7,6 +7,7 @@ import Control.Concurrent
 import Control.Monad
 import Data.Attoparsec.Text
 import qualified Data.Char as C
+import qualified Data.Map as M
 import qualified Data.Text as T
 import Data.Typeable
 import Data.Word
@@ -18,34 +19,6 @@ import Network.Socket
 import Network.Socks5
 import System.IO
 import System.Random
-
-gencookie :: StdGen -> Cookie
-gencookie g = T.pack . concatMap show $ P.take 3 (randoms g :: [Word64])
-
-torSocksPort :: PortNumber
-torSocksPort = 22209
-
--- Hidden service
-hstorchatHSPort :: PortNumber
-hstorchatHSPort = 11009
-
-hstorchatLocalPort :: PortNumber
-hstorchatLocalPort = 22009
-
-hstorchatHost :: String
-hstorchatHost = "127.0.0.1"
-
-hstorchatOutConn :: Onion -> IO Handle
-hstorchatOutConn onion = do
-    outsock <- socksConnectWith (defaultSocksConf "127.0.0.1" 22209) (T.unpack onion) (PortNumber 11009)
-    oHdl    <- socketToHandle outsock ReadWriteMode
-    hSetBuffering oHdl LineBuffering
-    return oHdl
-
--- | Format a message to send over a Socket.
-formatMsg :: ProtocolMsg -> String
-formatMsg AddMe = "add_me"
-formatMsg m     = map C.toLower . filter (/= '"') . show $ m
 
 type Onion  = T.Text
 type Cookie = T.Text
@@ -67,9 +40,9 @@ data BuddyStatus = Offline
                  deriving (Eq, Read, Show)
 
 data PendingConnection = PendingConnection
-                       { _pcookie :: Cookie
-                       , _ponion  :: Onion
-                       , _phandle :: Handle
+                       { _pcookie    :: Cookie
+                       , _ponion     :: Onion
+                       , _pouthandle :: Handle
                        } deriving Show
 
 data ProtocolMsg = Ping Onion Cookie
@@ -97,6 +70,38 @@ data ChatMsg = ChatMsg
              , buddy  :: T.Text
              , fromme :: Bool
              } deriving (Show, Typeable)
+
+gencookie :: StdGen -> Cookie
+gencookie g = T.pack . concatMap show $ P.take 3 (randoms g :: [Word64])
+
+torSocksPort :: PortNumber
+torSocksPort = 22209
+
+-- Hidden service
+hstorchatHSPort :: PortNumber
+hstorchatHSPort = 11009
+
+hstorchatLocalPort :: PortNumber
+hstorchatLocalPort = 22009
+
+hstorchatHost :: String
+hstorchatHost = "127.0.0.1"
+
+hstorchatOutConn :: Onion -> IO Handle
+hstorchatOutConn onion = do
+    outsock <- socksConnectWith (defaultSocksConf "127.0.0.1" 22209) (T.unpack onion) $ PortNumber 11009
+    oHdl    <- socketToHandle outsock ReadWriteMode
+    hSetBuffering oHdl LineBuffering
+    return oHdl
+
+-- | Format a message to send over a Socket.
+formatMsg :: ProtocolMsg -> String
+formatMsg AddMe = "add_me"
+formatMsg m     = map C.toLower . filter (/= '"') . show $ m
+
+-- | Return a BuddyList given the M.Map
+buddylist :: M.Map Onion (ObjRef Buddy) -> [ObjRef Buddy]
+buddylist bs = snd . unzip $ M.toList bs
 
 parseResponse :: Parser ProtocolMsg
 parseResponse =  try parsePingPong

@@ -4,7 +4,7 @@ import QtQuick.Controls 1.1
 import QtQuick.Layouts 1.1
 
 ApplicationWindow {
-    width: 500; height: 600
+    width: 525; height: 400
     title: "HSTorChat"
     visible: true
 
@@ -105,7 +105,7 @@ ApplicationWindow {
         Image {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
-            width: parent.width; height: parent.height / 2
+            width: parent.width / 1.3; height: parent.height / 2
             opacity: 0.2
             source: "img/hs.png"
         }
