@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings, DeriveDataTypeable #-}
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
-module HSTorChat.Protocol where
+module Network.HSTorChat.Protocol where
 
 import Control.Applicative
 import Control.Concurrent

@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable, TypeFamilies, OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-module HSTorChat.GUI where
+module Network.HSTorChat.GUI where
 
 import Control.Concurrent
 import qualified Data.Text as T
@@ -10,7 +10,7 @@ import Graphics.QML
 import System.IO
 import System.Random
 
-import HSTorChat.Protocol
+import Network.HSTorChat.Protocol
 
 -- Signals
 data BuddiesChanged deriving Typeable

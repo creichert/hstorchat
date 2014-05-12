@@ -17,7 +17,9 @@ library
   build-depends:       base >=4.6 && <4.7, network,
                        socks, process, hsqml>=0.3, safecopy, tagged,
                        attoparsec, text, split, socks, random, containers
-  exposed-modules:     HSTorChat.Client, HSTorChat.GUI, HSTorChat.Protocol
+  exposed-modules:     Network.HSTorChat.Client,
+                       Network.HSTorChat.GUI,
+                       Network.HSTorChat.Protocol
 
 executable hstorchat
   main-is:             src/Main.hs

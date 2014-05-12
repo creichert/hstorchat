@@ -11,8 +11,8 @@ import Network.Socket
 import System.IO
 import System.Process
 
-import HSTorChat.Client
-import HSTorChat.Protocol
+import Network.HSTorChat.Client
+import Network.HSTorChat.Protocol
 
 -- | Wait until the hidden service hostname file
 -- is ready

@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
-module HSTorChat.Client (newConnectionRequest
-                        ) where
+module Network.HSTorChat.Client (newConnectionRequest
+                                ) where
 
 import Control.Concurrent
 import Control.Exception
@@ -13,8 +13,8 @@ import System.IO
 import System.IO.Error
 import System.Random
 
-import HSTorChat.Protocol
-import HSTorChat.GUI
+import Network.HSTorChat.Protocol
+import Network.HSTorChat.GUI
 
 -- | This loop handles a new Buddy connection request.
 newConnectionRequest :: ObjRef TorChat -> Handle -> IO ()
