@@ -130,9 +130,9 @@ parsePing = do
     -- parse onion address.
     bdy <- take 16
     skipSpace
-    -- parse secret key.
-    key <- takeText
-    return $ Ping bdy key
+    -- parse secret cookie.
+    cky <- takeText
+    return $ Ping bdy cky
 
 parsePong :: Parser ProtocolMsg
 parsePong = do

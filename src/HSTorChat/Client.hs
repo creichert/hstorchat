@@ -26,10 +26,10 @@ newConnectionRequest tc iHdl = do
 
         Left e -> putStr "Error parsing incoming connection: " >> print e
 
-        Right (Ping onion key)
+        Right (Ping onion cky)
             -- Can this interrupt a legitimate connection?
             | buddyonline (M.lookup onion bs) -> putStrLn $ "Already a connection to: " ++ T.unpack onion
-            | otherwise -> pending >>= initiateConn onion key . filter ((== onion) . _ponion)
+            | otherwise -> pending >>= initiateConn onion cky . filter ((== onion) . _ponion)
 
         -- When a Pong is received an attempt is made
         -- to authenticate using the cookie we sent.
@@ -38,12 +38,12 @@ newConnectionRequest tc iHdl = do
         _ -> putStrLn "Buddy is not authenticated yet. Ignoring message."
   where
     -- | Initiate a new connection from scratch.
-    initiateConn o k [] = do oHdl <- hstorchatOutConn $ o `T.append` ".onion"
+    initiateConn o c [] = do oHdl <- hstorchatOutConn $ o `T.append` ".onion"
                              gen  <- getStdGen
                              let cky = gencookie gen
-                             reply (PendingConnection cky o oHdl) $ Ping myonion cky : stdrply k
+                             reply (PendingConnection cky o oHdl) $ Ping myonion cky : stdrply c
     -- | Complete an existing pending connection.
-    initiateConn _ k (pconn:_) = reply pconn $ stdrply k
+    initiateConn _ c (pconn:_) = reply pconn $ stdrply c
     reply p msgs = do mapM_ (hPutStrLn (_pouthandle p) . formatMsg) msgs
                       modifyMVar_ (_pending $ fromObjRef tc)
                           $ \ps -> return $ p : filter ((/= _ponion p) . _ponion) ps
