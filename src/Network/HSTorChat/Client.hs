@@ -41,7 +41,10 @@ newConnectionRequest tc iHdl = do
     initiateConn o c [] = do oHdl <- hstorchatOutConn $ o `T.append` ".onion"
                              gen  <- getStdGen
                              let cky = gencookie gen
-                             reply (PendingConnection cky o oHdl) $ Ping myonion cky : stdrply c
+                             case oHdl of
+                                 (Just hdl) -> reply (PendingConnection cky o hdl) $ Ping myonion cky : stdrply c
+                                 Nothing    -> putStrLn $ "Error connecting to " ++ T.unpack o
+
     -- | Complete an existing pending connection.
     initiateConn _ c (pconn:_) = reply pconn $ stdrply c
     reply p msgs = do mapM_ (hPutStrLn (_pouthandle p) . formatMsg) msgs

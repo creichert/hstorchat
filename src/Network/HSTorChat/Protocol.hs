@@ -4,6 +4,7 @@ module Network.HSTorChat.Protocol where
 
 import Control.Applicative
 import Control.Concurrent
+import qualified Control.Exception as E
 import Control.Monad
 import Data.Attoparsec.Text
 import qualified Data.Char as C
@@ -94,12 +95,14 @@ hstorchatLocalPort = 22009
 hstorchatHost :: String
 hstorchatHost = "127.0.0.1"
 
-hstorchatOutConn :: Onion -> IO Handle
+hstorchatOutConn :: Onion -> IO (Maybe Handle)
 hstorchatOutConn onion = do
-    outsock <- socksConnectWith hstcConf (T.unpack onion) $ PortNumber hstorchatHSPort
-    oHdl    <- socketToHandle outsock ReadWriteMode
-    hSetBuffering oHdl LineBuffering
-    return oHdl
+    handle <- E.try $ socksConnectWith hstcConf (T.unpack onion) $ PortNumber hstorchatHSPort
+    case handle of
+        Left e  -> print (e :: SocksError) >> return Nothing
+        Right o -> do oHdl <- socketToHandle o ReadWriteMode
+                      hSetBuffering oHdl LineBuffering
+                      return $ Just oHdl
   where hstcConf = defaultSocksConf hstorchatHost torSocksPort
 
 -- | Format a message to send over a Socket.
