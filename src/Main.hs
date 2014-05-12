@@ -14,6 +14,8 @@ import System.Process
 import Network.HSTorChat.Client
 import Network.HSTorChat.Protocol
 
+import Paths_hstorchat
+
 -- | Wait until the hidden service hostname file
 -- is ready
 hiddenServiceName :: IO String
@@ -48,7 +50,8 @@ main = withSocketsDo $ do
             hSetBuffering iHdl LineBuffering
             forkIO $ newConnectionRequest tc iHdl
 
+    doc <- getDataFileName "qml/HSTorChat.qml"
     runEngineLoop defaultEngineConfig {
-      initialDocument = fileDocument "qml/HSTorChat.qml"
+      initialDocument = fileDocument doc
     , contextObject   = Just $ anyObjRef tc
     }
