@@ -86,17 +86,18 @@ sendMsg _ bud msg
                                                                          return (m:ms))
 
 newBuddy :: ObjRef TorChat -> T.Text -> IO ()
-newBuddy tc onion = do
-    putStrLn $ "Requesting buddy connection: " ++ T.unpack onion
-    oHdl <- hstorchatOutConn $ onion `T.append` ".onion"
-    gen <- getStdGen
-    let  cky = gencookie gen
-         tc' = fromObjRef tc
+newBuddy tc onion
+    | T.length onion /= 16 = putStrLn $ T.unpack onion ++ " is not 16 characters long."
+    | otherwise = do putStrLn $ "Requesting buddy connection: " ++ T.unpack onion
+                     oHdl <- hstorchatOutConn $ onion `T.append` ".onion"
+                     gen <- getStdGen
+                     let  cky = gencookie gen
+                          tc' = fromObjRef tc
 
-    -- Add to list of pending connection.
-    modifyMVar_ (_pending tc')
-        $ \p -> return $ PendingConnection cky onion oHdl : filter ((/= onion) . _ponion) p
-    hPutStrLn oHdl $ formatMsg $ Ping (_myonion tc') cky
+                     -- Add to list of pending connection.
+                     modifyMVar_ (_pending tc')
+                         $ \p -> return $ PendingConnection cky onion oHdl : filter ((/= onion) . _ponion) p
+                     hPutStrLn oHdl $ formatMsg $ Ping (_myonion tc') cky
 
 statusChanged :: ObjRef TorChat -> T.Text -> IO ()
 statusChanged tc status
