@@ -20,6 +20,18 @@ import Network.Socks5
 import System.IO
 import System.Random
 
+data TorChat = TorChat
+        { _myonion  :: Onion
+        , _mystatus :: BuddyStatus
+        , _buddies  :: MVar (M.Map Onion (ObjRef Buddy))
+        , _pending  :: MVar [PendingConnection]
+        } deriving Typeable
+
+-- Signals
+data BuddiesChanged deriving Typeable
+data NewChatMsg deriving Typeable
+data BuddyChanged deriving Typeable
+
 type Onion  = T.Text
 type Cookie = T.Text
 
@@ -89,10 +101,11 @@ hstorchatHost = "127.0.0.1"
 
 hstorchatOutConn :: Onion -> IO Handle
 hstorchatOutConn onion = do
-    outsock <- socksConnectWith (defaultSocksConf "127.0.0.1" 22209) (T.unpack onion) $ PortNumber 11009
+    outsock <- socksConnectWith hstcConf (T.unpack onion) $ PortNumber hstorchatHSPort
     oHdl    <- socketToHandle outsock ReadWriteMode
     hSetBuffering oHdl LineBuffering
     return oHdl
+  where hstcConf = defaultSocksConf hstorchatHost torSocksPort
 
 -- | Format a message to send over a Socket.
 formatMsg :: ProtocolMsg -> String

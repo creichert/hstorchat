@@ -1,29 +1,15 @@
-{-# LANGUAGE DeriveDataTypeable, TypeFamilies, OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies, OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module HSTorChat.GUI where
 
 import Control.Concurrent
-import qualified Data.Map as M
 import qualified Data.Text as T
 import Data.Proxy
-import Data.Typeable
 import Graphics.QML
 import System.IO
 import System.Random
 
 import HSTorChat.Protocol
-
-data TorChat = TorChat
-        { _myonion  :: Onion
-        , _mystatus :: BuddyStatus
-        , _buddies  :: MVar (M.Map Onion (ObjRef Buddy))
-        , _pending  :: MVar [PendingConnection]
-        } deriving Typeable
-
--- Signals
-data BuddiesChanged deriving Typeable
-data NewChatMsg deriving Typeable
-data BuddyChanged deriving Typeable
 
 instance DefaultClass TorChat where
     classMembers = [
