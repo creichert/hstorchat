@@ -2,6 +2,7 @@ name:                hstorchat
 version:             0.1.0.0
 synopsis:            Haskell TorChat clone using HsQML
 homepage:            reichertbrothers.com/blog/posts/2014-04-30-exploring-hsqml.html
+copyright:           (c) 2014 Christopher Reichert
 license:             GPL-3
 license-file:        LICENSE
 author:              Christopher Reichert
@@ -9,6 +10,7 @@ maintainer:          creichert07@gmail.com
 build-type:          Simple
 cabal-version:       >=1.10
 category:            Network
+stability:           experimental
 data-files:          torrc, qml/*.qml, qml/img/*.png
 
 library
