@@ -2,6 +2,7 @@
 module Main where
 
 import Control.Concurrent
+import Control.Exception
 import Control.Monad
 import qualified Data.Map as M
 import Data.Text as T
@@ -13,11 +14,22 @@ import System.Process
 import HSTorChat.Client
 import HSTorChat.Protocol
 
+-- | Wait until the hidden service hostname file
+-- is ready
+hiddenServiceName :: IO String
+hiddenServiceName = catch (readFile "hidden_service/hostname")
+                          (\e -> print (e :: IOException)
+                              >> threadDelay 5000
+                              >> hiddenServiceName)
+
 main :: IO ()
 main = withSocketsDo $ do
 
     _ <- createProcess $ proc "tor" ["-f", "torrc"]
 
+    onion <- hiddenServiceName
+    let myonion = T.take 16 $ T.pack onion
+    putStr $ "Hello " ++ onion
     sock <- socket AF_INET Stream 0
     setSocketOption sock ReuseAddr 1
 
@@ -28,20 +40,15 @@ main = withSocketsDo $ do
     buddies <- newMVar M.empty
     p <- newMVar []
 
-    onion <- readFile "hidden_service/hostname"
-    let myonion = T.take 16 $ T.pack onion
-
-    putStr $ "Hello " ++ onion
-
     tc <- newObjectDC $ TorChat myonion Available buddies p
 
     _ <- forkIO $ forever $ do
-        (insock,_) <- accept sock
-        iHdl <- socketToHandle insock ReadWriteMode
-        hSetBuffering iHdl LineBuffering
-        forkIO $ newConnectionRequest tc iHdl
+            (insock,_) <- accept sock
+            iHdl <- socketToHandle insock ReadWriteMode
+            hSetBuffering iHdl LineBuffering
+            forkIO $ newConnectionRequest tc iHdl
 
     runEngineLoop defaultEngineConfig {
-        initialDocument    = fileDocument "qml/HSTorChat.qml"
-      , contextObject      = Just $ anyObjRef tc
+      initialDocument = fileDocument "qml/HSTorChat.qml"
+    , contextObject   = Just $ anyObjRef tc
     }
