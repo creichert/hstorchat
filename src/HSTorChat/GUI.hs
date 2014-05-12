@@ -13,8 +13,7 @@ import System.Random
 
 import HSTorChat.Protocol
 
--- Main UI Object.
-data UI = UI
+data TorChat = TorChat
         { _myonion  :: Onion
         , _mystatus :: BuddyStatus
         , _buddies  :: MVar (M.Map Onion (ObjRef Buddy))
@@ -26,11 +25,11 @@ data BuddiesChanged deriving Typeable
 data NewChatMsg deriving Typeable
 data BuddyChanged deriving Typeable
 
-instance DefaultClass UI where
+instance DefaultClass TorChat where
     classMembers = [
           defPropertySigRO "buddies" (Proxy :: Proxy BuddiesChanged) buddies
           -- | Return Onion address for this instance of HSTorChat.
-        , defMethod "onion" (return . _myonion . fromObjRef :: ObjRef UI -> IO Onion)
+        , defMethod "onion" (return . _myonion . fromObjRef :: ObjRef TorChat -> IO Onion)
           -- | Send a message to a buddy.
         , defMethod "sendMsg" sendMsg
           -- | Add a new buddy.
@@ -38,8 +37,8 @@ instance DefaultClass UI where
         , defMethod "setStatus" statusChanged
         ]
       where
-        buddies :: ObjRef UI -> IO [ObjRef Buddy]
-        buddies ui = return . buddylist =<< (readMVar . _buddies $ fromObjRef ui)
+        buddies :: ObjRef TorChat -> IO [ObjRef Buddy]
+        buddies tc = return . buddylist =<< (readMVar . _buddies $ fromObjRef tc)
 
 instance DefaultClass ChatMsg where
     classMembers = [
@@ -79,7 +78,7 @@ instance SignalKeyClass BuddyChanged where
 -- | This function is called when the user enters
 -- a msg in a chat window. The handle for the buddy
 -- is accessed and used to send the message.
-sendMsg :: ObjRef UI -> ObjRef Buddy -> T.Text -> IO ()
+sendMsg :: ObjRef TorChat -> ObjRef Buddy -> T.Text -> IO ()
 sendMsg _ bud msg
     | null (T.unpack msg) = putStrLn "Ignoring empty request."
     -- Check if buddy is offline
@@ -94,26 +93,26 @@ sendMsg _ bud msg
           saveMsg cmsg = modifyMVar_ (_msgs $ fromObjRef bud) (\ms -> do m <- newObjectDC cmsg
                                                                          return (m:ms))
 
-newBuddy :: ObjRef UI -> T.Text -> IO ()
-newBuddy ui onion = do
+newBuddy :: ObjRef TorChat -> T.Text -> IO ()
+newBuddy tc onion = do
     putStrLn $ "Requesting buddy connection: " ++ T.unpack onion
     oHdl <- hstorchatOutConn $ onion `T.append` ".onion"
     gen <- getStdGen
     let  cky = gencookie gen
-         ui' = fromObjRef ui
+         tc' = fromObjRef tc
 
     -- Add to list of pending connection.
-    modifyMVar_ (_pending ui')
+    modifyMVar_ (_pending tc')
         $ \p -> return $ PendingConnection cky onion oHdl : filter ((/= onion) . _ponion) p
-    hPutStrLn oHdl $ formatMsg $ Ping (_myonion ui') cky
+    hPutStrLn oHdl $ formatMsg $ Ping (_myonion tc') cky
 
-statusChanged :: ObjRef UI -> T.Text -> IO ()
-statusChanged ui status
+statusChanged :: ObjRef TorChat -> T.Text -> IO ()
+statusChanged tc status
     | T.unpack status == "Away" = alert Away
     | T.unpack status == "Extended Away" = alert Xa
     | otherwise = alert Available
   where
-    alert st = do bs' <- readMVar . _buddies $ fromObjRef ui
+    alert st = do bs' <- readMVar . _buddies $ fromObjRef tc
                   bl <- return . map fromObjRef $ buddylist bs'
                   -- tell online buddies status.
                   tell (online bl) $ Status st

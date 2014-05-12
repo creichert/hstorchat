@@ -17,8 +17,8 @@ import HSTorChat.Protocol
 import HSTorChat.GUI
 
 -- | This loop handles a new Buddy connection request.
-newConnectionRequest :: ObjRef UI -> Handle -> IO ()
-newConnectionRequest ui iHdl = do
+newConnectionRequest :: ObjRef TorChat -> Handle -> IO ()
+newConnectionRequest tc iHdl = do
 
     bs  <- buds
     txt <- hGetLine iHdl
@@ -33,7 +33,7 @@ newConnectionRequest ui iHdl = do
 
         -- When a Pong is received an attempt is made
         -- to authenticate using the cookie we sent.
-        Right (Pong cke) -> pending >>= authorizePendingConnection ui iHdl . filter ((== cke) . _pcookie)
+        Right (Pong cke) -> pending >>= authorizePendingConnection tc iHdl . filter ((== cke) . _pcookie)
 
         _ -> putStrLn "Buddy is not authenticated yet. Ignoring message."
   where
@@ -45,36 +45,36 @@ newConnectionRequest ui iHdl = do
     -- | Complete an existing pending connection.
     initiateConn _ k (pconn:_) = reply pconn $ stdrply k
     reply p msgs = do mapM_ (hPutStrLn (_pouthandle p) . formatMsg) msgs
-                      modifyMVar_ (_pending $ fromObjRef ui)
+                      modifyMVar_ (_pending $ fromObjRef tc)
                           $ \ps -> return $ p : filter ((/= _ponion p) . _ponion) ps
-                      newConnectionRequest ui iHdl
+                      newConnectionRequest tc iHdl
     buddyonline Nothing = False
     buddyonline (Just bud) = _status (fromObjRef bud) /= Offline
-    getui = fromObjRef ui
-    pending = readMVar $ _pending getui
-    buds = readMVar $ _buddies getui
-    myonion = _myonion getui
+    gettc = fromObjRef tc
+    pending = readMVar $ _pending gettc
+    buds = readMVar $ _buddies gettc
+    myonion = _myonion gettc
     stdrply k = [ Pong k
                 , Client "HSTorChat"
                 , Version "0.1.0.0"
                 , AddMe
                 , Status Available ]
 
-authorizePendingConnection :: ObjRef UI -> Handle -> [PendingConnection] -> IO ()
+authorizePendingConnection :: ObjRef TorChat -> Handle -> [PendingConnection] -> IO ()
 authorizePendingConnection _ _ [] = putStrLn "Security Warning: Attempted connection with unidentified cookie."
 -- | A pending connection exists. Verify and start the buddy
-authorizePendingConnection ui iHdl (PendingConnection cke o oHdl : _) = do
+authorizePendingConnection tc iHdl (PendingConnection cke o oHdl : _) = do
 
-        let ui' = fromObjRef ui
-        bs <- readMVar $ _buddies ui'
+        let tc' = fromObjRef tc
+        bs <- readMVar $ _buddies tc'
         bud <- constructBuddy $ M.lookup o bs
 
         -- Filter this connection.
-        modifyMVar_ (_pending ui') $ \ps -> return $ filter ((/= cke) . _pcookie) ps
-        modifyMVar_ (_buddies ui') $ \buds -> return $ M.insert o bud buds
-        fireSignal (Proxy :: Proxy BuddiesChanged) ui
+        modifyMVar_ (_pending tc') $ \ps -> return $ filter ((/= cke) . _pcookie) ps
+        modifyMVar_ (_buddies tc') $ \buds -> return $ M.insert o bud buds
+        fireSignal (Proxy :: Proxy BuddiesChanged) tc
 
-        runBuddyConnection ui bud
+        runBuddyConnection tc bud
   where
     constructBuddy :: Maybe (ObjRef Buddy) -> IO (ObjRef Buddy)
     constructBuddy Nothing  = do ms <- newMVar []
@@ -86,8 +86,8 @@ authorizePendingConnection ui iHdl (PendingConnection cke o oHdl : _) = do
                                                              , _status = Handshake
                                                              , _msgs = _msgs b' }
 
-runBuddyConnection :: ObjRef UI -> ObjRef Buddy -> IO ()
-runBuddyConnection ui objb = do
+runBuddyConnection :: ObjRef TorChat -> ObjRef Buddy -> IO ()
+runBuddyConnection tc objb = do
     let b    = fromObjRef objb
         iHdl = _inConn b
         oHdl = _outConn b
@@ -97,32 +97,32 @@ runBuddyConnection ui objb = do
     case parseOnly parseResponse (T.pack txt) of
 
         Left e -> print ("Error parsing incoming message: " ++ e) >>
-                  runBuddyConnection ui objb
+                  runBuddyConnection tc objb
 
         Right (Message msg) -> do
             cmsg <- newObjectDC $ ChatMsg msg (_onion b) False
             modifyMVar_ (_msgs b) (\ms -> return (cmsg:ms))
             fireSignal (Proxy :: Proxy NewChatMsg) objb
-            runBuddyConnection ui objb
+            runBuddyConnection tc objb
 
         Right (Status Offline) -> do
             nb <- newObjectDC $ b { _status = Offline }
-            modifyMVar_ (_buddies $ fromObjRef ui)
+            modifyMVar_ (_buddies $ fromObjRef tc)
                                   $ \bs -> return $ M.insert oni nb bs
-            fireSignal (Proxy :: Proxy BuddiesChanged) ui
+            fireSignal (Proxy :: Proxy BuddiesChanged) tc
             -- Cleanup handles.
             hClose iHdl
             hClose oHdl
 
         Right (Status st) -> do
             nb <- newObjectDC $ b { _status = st }
-            modifyMVar_ (_buddies $ fromObjRef ui)
+            modifyMVar_ (_buddies $ fromObjRef tc)
                                   $ \bs -> return $ M.insert oni nb bs
-            fireSignal (Proxy :: Proxy BuddiesChanged) ui
+            fireSignal (Proxy :: Proxy BuddiesChanged) tc
             -- Run the new buddy loop.
-            runBuddyConnection ui nb
+            runBuddyConnection tc nb
 
-        Right p -> print p >> runBuddyConnection ui objb
+        Right p -> print p >> runBuddyConnection tc objb
   where
       errorHandler e
         | isEOFError e = return "status offline"

@@ -34,15 +34,15 @@ main = withSocketsDo $ do
 
     putStr $ "Hello " ++ onion
 
-    ui <- newObjectDC $ UI myonion Available buddies p
+    tc <- newObjectDC $ TorChat myonion Available buddies p
 
     _ <- forkIO $ forever $ do
         (insock,_) <- accept sock
         iHdl <- socketToHandle insock ReadWriteMode
         hSetBuffering iHdl LineBuffering
-        forkIO $ newConnectionRequest ui iHdl
+        forkIO $ newConnectionRequest tc iHdl
 
     runEngineLoop defaultEngineConfig {
         initialDocument    = fileDocument "qml/HSTorChat.qml"
-      , contextObject      = Just $ anyObjRef ui
+      , contextObject      = Just $ anyObjRef tc
     }
