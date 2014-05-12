@@ -11,7 +11,6 @@ import System.IO
 import System.Process
 
 import HSTorChat.Client
-import HSTorChat.GUI
 import HSTorChat.Protocol
 
 main :: IO ()

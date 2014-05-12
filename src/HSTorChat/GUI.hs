@@ -1,15 +1,21 @@
-{-# LANGUAGE TypeFamilies, OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable, TypeFamilies, OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module HSTorChat.GUI where
 
 import Control.Concurrent
 import qualified Data.Text as T
 import Data.Proxy
+import Data.Typeable
 import Graphics.QML
 import System.IO
 import System.Random
 
 import HSTorChat.Protocol
+
+-- Signals
+data BuddiesChanged deriving Typeable
+data NewChatMsg deriving Typeable
+data BuddyChanged deriving Typeable
 
 instance DefaultClass TorChat where
     classMembers = [

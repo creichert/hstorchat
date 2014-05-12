@@ -20,20 +20,15 @@ import Network.Socks5
 import System.IO
 import System.Random
 
+type Onion  = T.Text
+type Cookie = T.Text
+
 data TorChat = TorChat
         { _myonion  :: Onion
         , _mystatus :: BuddyStatus
         , _buddies  :: MVar (M.Map Onion (ObjRef Buddy))
         , _pending  :: MVar [PendingConnection]
         } deriving Typeable
-
--- Signals
-data BuddiesChanged deriving Typeable
-data NewChatMsg deriving Typeable
-data BuddyChanged deriving Typeable
-
-type Onion  = T.Text
-type Cookie = T.Text
 
 data Buddy = Buddy
            { _onion   :: Onion -- ^ Buddy onion address.
