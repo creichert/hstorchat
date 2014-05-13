@@ -21,7 +21,7 @@ library
   default-language:    Haskell2010
   build-depends:       base >=4.6 && <4.7, network,
                        socks, process, hsqml>=0.3, safecopy, tagged,
-                       attoparsec, text, split, socks, random, containers
+                       attoparsec, text, socks, random, containers
   exposed-modules:     Network.HSTorChat.Client,
                        Network.HSTorChat.GUI,
                        Network.HSTorChat.Protocol
