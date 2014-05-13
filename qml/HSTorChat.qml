@@ -13,7 +13,7 @@ ApplicationWindow {
             anchors.fill: parent
             ComboBox {
                 model: [ "Available", "Away", "Extended Away" ]
-                onCurrentIndexChanged: { setStatus(model[currentIndex]); console.debug(model[currentIndex]) }
+                onCurrentIndexChanged: { setStatus(model[currentIndex]) }
             }
             TextField {
                 id: newbuddy

@@ -125,7 +125,7 @@ runBuddyConnection tc objb = do
             -- Run the new buddy loop.
             runBuddyConnection tc nb
 
-        Right p -> print p >> runBuddyConnection tc objb
+        Right p -> print (T.unpack oni ++ ": " ++ show p) >> runBuddyConnection tc objb
   where
       errorHandler e
         | isEOFError e = return "status offline"
