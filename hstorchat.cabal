@@ -1,7 +1,7 @@
 name:                hstorchat
 version:             0.1.0.0
 synopsis:            Distributed instant messaging over Tor
-homepage:            reichertbrothers.com/blog/posts/2014-04-30-exploring-hsqml.html
+homepage:            http://reichertbrothers.com/blog/posts/2014-04-30-exploring-hsqml.html
 copyright:           (c) 2014 Christopher Reichert
 license:             GPL-3
 license-file:        LICENSE
