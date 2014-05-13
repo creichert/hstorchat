@@ -11,7 +11,7 @@ build-type:          Simple
 cabal-version:       >=1.10
 category:            Network
 stability:           experimental
-data-files:          torrc, qml/*.qml, qml/img/*.png
+data-files:          qml/*.qml, qml/img/*.png
 description:
     A Distributed instant messaging application built on Tor Hidden Services.
 

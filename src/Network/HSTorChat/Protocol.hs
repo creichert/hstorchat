@@ -85,10 +85,11 @@ gencookie g = T.pack . concatMap show $ P.take 3 (randoms g :: [Word64])
 torSocksPort :: PortNumber
 torSocksPort = 22209
 
--- Hidden service
+-- Hidden service port.
 hstorchatHSPort :: PortNumber
 hstorchatHSPort = 11009
 
+-- Port inside Socks5 tunnel.
 hstorchatLocalPort :: PortNumber
 hstorchatLocalPort = 22009
 

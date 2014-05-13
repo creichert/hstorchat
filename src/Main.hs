@@ -16,10 +16,43 @@ import Network.HSTorChat.Protocol
 
 import Paths_hstorchat
 
+
+gentorrc :: String -> IO ()
+gentorrc dd = writeFile (dd ++ "/torrc") $ Prelude.unlines
+                [ "SocksPort " ++ socksport
+                -- we don't use the control port currently, so leave this alone
+                --, "ControlPort 11119"
+                -- INCOMING connections for the hidden service arrive at 11009
+                -- and will be forwarded to TorChat at 127.0.0.1:22009
+                , "HiddenServiceDir " ++ dd ++ "/hidden_service"
+                , "HiddenServicePort " ++ hsport ++ " 127.0.0.1:" ++ hstcport
+                -- where should tor store it's cache files
+                , "DataDirectory " ++ dd ++ " tor_data"
+                -- some tuning
+                , "AvoidDiskWrites 1"
+                , "LongLivedPorts " ++ hstcport
+                , "FetchDirInfoEarly 1"
+                , "CircuitBuildTimeout 30"
+                , "NumEntryGuards 6"
+                -- You can uncomment the lines below to log Tor's activity to the
+                -- console or to a log file. Use this only during debugging!
+                -- Turning off SaveLogging will leave sensitive information on your disk,
+                -- the built in default is save logging turned on (set to 1).
+                -- so don't remove the # from that line unless you need it
+                -- and remember to put it in again, after you are done.
+                --, "Log info File tor.log"
+                --, "Log info stdout"
+                --, "SafeLogging 0"
+                ]
+  where hsport    = show hstorchatHSPort
+        hstcport  = show hstorchatLocalPort
+        socksport = show torSocksPort
+
 -- | Wait until the hidden service hostname file
 -- is ready
 hiddenServiceName :: IO String
-hiddenServiceName = catch (readFile "hidden_service/hostname")
+hiddenServiceName = catch (do dd <- getDataDir
+                              readFile $ dd ++ "/hidden_service/hostname")
                           (\e -> print (e :: IOException)
                               >> threadDelay 5000
                               >> hiddenServiceName)
@@ -27,7 +60,9 @@ hiddenServiceName = catch (readFile "hidden_service/hostname")
 main :: IO ()
 main = withSocketsDo $ do
 
-    _ <- createProcess $ proc "tor" ["-f", "torrc"]
+    dd <- getDataDir
+    gentorrc dd
+    _ <- createProcess $ proc "tor" ["-f", dd ++ "/torrc"]
 
     onion <- hiddenServiceName
     let myonion = T.take 16 $ T.pack onion
