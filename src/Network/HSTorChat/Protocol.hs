@@ -109,7 +109,8 @@ hstorchatOutConn onion = do
 -- | Format a message to send over a Socket.
 formatMsg :: ProtocolMsg -> String
 formatMsg AddMe = "add_me"
-formatMsg m     = map C.toLower . filter (/= '"') . show $ m
+formatMsg (Message m) = "message " ++ T.unpack m
+formatMsg m = map C.toLower . filter (/= '"') . show $ m
 
 -- | Return a BuddyList given the M.Map
 buddylist :: M.Map Onion (ObjRef Buddy) -> [ObjRef Buddy]
