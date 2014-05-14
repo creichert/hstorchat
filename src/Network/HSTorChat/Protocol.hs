@@ -117,16 +117,16 @@ buddylist :: M.Map Onion (ObjRef Buddy) -> [ObjRef Buddy]
 buddylist bs = snd . unzip $ M.toList bs
 
 parseResponse :: Parser ProtocolMsg
-parseResponse =  try parsePingPong
-             <|> try parseVersion
-             <|> try parseClient
-             <|> try parseStatus
-             <|> try parseAddMe
-             <|> parseMsg
+parseResponse = choice [ parsePingPong
+                       , parseVersion
+                       , parseClient
+                       , parseStatus
+                       , parseAddMe
+                       , parseMessage
+                       ]
 
 parsePingPong :: Parser ProtocolMsg
-parsePingPong =  try parsePing
-             <|> try parsePong
+parsePingPong =  try parsePing <|> try parsePong
 
 parsePing :: Parser ProtocolMsg
 parsePing = do
@@ -140,31 +140,17 @@ parsePing = do
     return $ Ping bdy cky
 
 parsePong :: Parser ProtocolMsg
-parsePong = do
-    string "pong"
-    skipSpace
-    -- parse secret key.
-    key <- takeText
-    return $ Pong key
+parsePong = liftM Pong $ string "pong" >> skipSpace >> takeText
 
 parseVersion :: Parser ProtocolMsg
-parseVersion = do
-    string "version"
-    skipSpace
-    v <- takeText
-    return $ Version v
+parseVersion = liftM Version $ string "version" >> skipSpace >> takeText
 
 parseClient :: Parser ProtocolMsg
-parseClient = do
-    string "client"
-    skipSpace
-    c <- takeText
-    return $ Client c
+parseClient = liftM Client $ string "client" >> skipSpace >> takeText
 
 parseStatus :: Parser ProtocolMsg
 parseStatus = do
-    string "status"
-    skipSpace
+    string "status" >> skipSpace
     st <- takeText
     return $ Status (read $ capitalized (T.unpack st) :: BuddyStatus)
   where
@@ -172,14 +158,7 @@ parseStatus = do
     capitalized (x:xs) = C.toUpper x : xs
 
 parseAddMe :: Parser ProtocolMsg
-parseAddMe = do
-    string "add_me"
-    skipSpace
-    return AddMe
+parseAddMe = string "add_me" >> skipSpace >> return AddMe
 
-parseMsg :: Parser ProtocolMsg
-parseMsg = do
-    string "message"
-    skipSpace
-    msg <- takeText
-    return $ Message msg
+parseMessage :: Parser ProtocolMsg
+parseMessage = liftM Message $ string "message" >> skipSpace >> takeText
