@@ -149,7 +149,8 @@ ApplicationWindow {
                 focus: true
                 wrapMode: TextEdit.Wrap
                 onCursorRectangleChanged: msgentryflick.ensureVisible(cursorRectangle)
-                Keys.onReturnPressed: { if (buddylist.length <= 0) return
+                Keys.onReturnPressed: { if (buddies.length <= 0) return
+                                        console.log(buddylist.length)
                                         sendMsg(buddies[buddylist.currentIndex], msgentry.text)
                                         msgentry.text = ""
                                         msgarea.positionViewAtBeginning()
