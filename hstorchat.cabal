@@ -1,5 +1,5 @@
 name:                hstorchat
-version:             0.1.0.0
+version:             0.1.1.0
 synopsis:            Distributed instant messaging over Tor
 copyright:           (c) 2014 Christopher Reichert
 license:             GPL-3
