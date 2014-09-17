@@ -10,6 +10,7 @@ A TorChat implementation in Haskell and QML.
     $ cabal sandbox init
     $ cabal install --dependencies-only --enable-tests
     $ cabal build
+    $ cabal install
 ```
 
 ## Run
