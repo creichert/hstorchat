@@ -28,8 +28,7 @@ library
                        safecopy   == 0.8.*,
                        socks      == 0.5.*,
                        tagged     == 0.7.*,
-                       text       == 1.1.*,
-                       c2hs       == 0.18.*
+                       text       == 1.1.*
 
   exposed-modules:     Network.HSTorChat.Client,
                        Network.HSTorChat.GUI,
