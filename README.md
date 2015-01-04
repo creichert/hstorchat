@@ -16,5 +16,5 @@ A TorChat implementation in Haskell and QML.
 ## Run
 
 ```
-    $ ./dist/build/hstorchat/hstorchat
+    $ cabal run hstorchat
 ```
